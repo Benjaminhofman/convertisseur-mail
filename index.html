@@ -270,8 +270,6 @@ Cordialement,"></textarea>
 
     <div class="actions">
       <button class="primary" id="btnCopyRendu">Copier le mail mis en forme</button>
-      <button class="ghost" id="btnCopy">Copier le code HTML</button>
-      <button class="ghost" id="btnDownload">Télécharger .html</button>
     </div>
     <p class="hint">Fonctionne avec Gmail, Outlook, Apple Mail, Thunderbird et la plupart des messageries. Collez directement dans la fenêtre de rédaction.</p>
   </section>
@@ -685,28 +683,9 @@ $("btnCopyRendu").onclick = async ()=>{
     showToast("Mail copié — collez-le dans le corps d'un nouveau message (Ctrl+V).");
   }else{
     const erreur = $("erreurIA");
-    erreur.textContent = "La copie a échoué. Utilisez plutôt \"Copier le code HTML\" ou \"Télécharger .html\".";
+    erreur.textContent = "La copie a échoué. Réessayez, ou sélectionnez le texte dans l'aperçu et copiez-le manuellement (Ctrl+C).";
     erreur.style.display = "block";
   }
-};
-
-$("btnCopy").onclick = async ()=>{
-  try{
-    await navigator.clipboard.writeText(buildEmail());
-  }catch(e){
-    const ta = document.createElement("textarea");
-    ta.value = buildEmail(); document.body.appendChild(ta);
-    ta.select(); document.execCommand("copy"); ta.remove();
-  }
-  showToast("HTML copié dans le presse-papiers");
-};
-$("btnDownload").onclick = ()=>{
-  const blob = new Blob([buildEmail()], {type:"text/html;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "mail.html";
-  a.click();
-  URL.revokeObjectURL(a.href);
 };
 
 let texteOriginal = null;
