@@ -133,7 +133,8 @@ function restaurerJetons(texte, table) {
 
 app.post("/api/reformuler", async (req, res) => {
   try {
-    const { texte, ton, action, anonymiser } = req.body || {};
+    const { texte, ton, action, anonymiser, tutoiement } = req.body || {};
+    const tutoiementActif = Boolean(tutoiement);
     if (!texte || !String(texte).trim())
       return res.status(400).json({ error: "Texte manquant." });
     if (String(texte).length > 15000)
@@ -163,12 +164,16 @@ RÈGLES STRICTES :
 - Maximum 1 émoji par paragraphe et 8 émojis au total. La sobriété prime : mieux vaut trop peu que trop.
 - Émojis adaptés au contexte du mail : 📅 ⏰ ✅ ⚠️ 💡 📌 ✉️ 🤝 🎉 👍 🙏 📍. Jamais d'émojis fantaisistes ou familiers.
 - Conserve tels quels les marqueurs ##, ###, >, !!, [[...]] et les **gras**.
+- Le texte peut être au tutoiement ou au vouvoiement selon le choix de l'utilisateur : comme tu ne modifies aucun mot, tu n'as pas à convertir le registre, contente-toi d'insérer les émojis sans y toucher.
 - Réponds UNIQUEMENT avec le texte enrichi, sans commentaire.`;
       temperature = 0.4;
       userPrefix = "Texte à enrichir d'émojis :\n\n";
     } else {
       const tonFinal = (ton && String(ton).trim()) || "professionnel et courtois";
       const consigneTon = TONS[tonFinal] || TONS["professionnel et courtois"];
+      const consigneRegistre = tutoiementActif
+        ? `- REGISTRE IMPÉRATIF : tutoie le destinataire dans tout le mail. Convertis systématiquement chaque "vous" s'adressant au destinataire en "tu" (et les accords correspondants : votre → ton/ta, vos → tes, vous-même → toi-même). Adapte les formules d'ouverture et de clôture à un registre cordial mais soigné ("Bonjour Prénom," si le prénom figure dans le texte, sinon "Bonjour," ; clôture type "Bien à toi," ou "À très vite,"). Aucun "vous" résiduel adressé au destinataire ne doit subsister. Le texte reste soigné : ni argot ni langage SMS.`
+        : `- REGISTRE IMPÉRATIF : vouvoie le destinataire et conserve les formules de politesse de la correspondance professionnelle française.`;
       systemPrompt =
 `Tu reformules des emails rédigés en français, quel que soit leur contexte : professionnel, commercial, administratif, associatif ou personnel.
 
@@ -176,8 +181,10 @@ INVARIANTS ABSOLUS (priorité maximale) :
 - Les montants, taux, dates, délais, références légales et noms propres sont conservés STRICTEMENT à l'identique.
 - Le sens de chaque information est conservé : ne reformule jamais une phrase au point d'en changer la portée (qui fait quoi, qui doit transmettre quoi à qui).
 - Les marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**) sont conservés tels quels.
-- Conserve les formules de politesse de la correspondance professionnelle française, sans jamais devenir familier.
+${consigneRegistre}
 - N'invente aucune information : si une formule d'ouverture chaleureuse ou une référence serait naturelle mais que le texte ne fournit pas l'information (prénom du destinataire, contexte), reste générique plutôt que d'inventer.
+
+Cette contrainte de registre (tutoiement/vouvoiement) PRIME sur les instructions de ton ci-dessous en cas de conflit : un ton "formel et solennel" avec tutoiement demandé reste solennel dans le vocabulaire mais tutoie.
 
 STYLE À APPLIQUER (dans le respect des invariants) :
 ${consigneTon}
