@@ -204,6 +204,7 @@ Cordialement,"></textarea>
 
       <div class="actions" style="margin-top:8px;">
         <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
+        <button type="button" class="ghost" id="btnEmojis">Ajouter des émojis</button>
         <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
       </div>
       <p class="error-text" id="erreurIA" style="display:none;"></p>
@@ -558,30 +559,33 @@ $("btnDownload").onclick = ()=>{
 
 let texteOriginal = null;
 
-async function reformuler() {
-  const corps  = document.getElementById("corps");
-  const bouton = document.getElementById("btnReformuler");
-  const annuler= document.getElementById("btnAnnulerIA");
-  const erreur = document.getElementById("erreurIA");
-  const ton    = document.getElementById("tonStyle").value;
+async function appelEIA(action) {
+  const corps         = document.getElementById("corps");
+  const btnReformuler  = document.getElementById("btnReformuler");
+  const btnEmojis      = document.getElementById("btnEmojis");
+  const annuler        = document.getElementById("btnAnnulerIA");
+  const erreur         = document.getElementById("erreurIA");
+  const ton            = document.getElementById("tonStyle").value;
+  const bouton         = action === "emojis" ? btnEmojis : btnReformuler;
 
   erreur.style.display = "none";
-  const source = (texteOriginal !== null) ? texteOriginal : corps.value;
+  const source = (action === "reformuler" && texteOriginal !== null) ? texteOriginal : corps.value;
   if (!source.trim()) {
     erreur.textContent = "Saisissez d'abord le texte du mail.";
     erreur.style.display = "block";
     return;
   }
 
-  bouton.disabled = true;
+  btnReformuler.disabled = true;
+  btnEmojis.disabled = true;
   const libelle = bouton.textContent;
-  bouton.textContent = "Reformulation en cours…";
+  bouton.textContent = action === "emojis" ? "Ajout des émojis…" : "Reformulation en cours…";
 
   try {
     const r = await fetch("/api/reformuler", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texte: source, ton: ton })
+      body: JSON.stringify({ texte: source, ton: ton, action: action })
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Erreur serveur.");
@@ -593,12 +597,14 @@ async function reformuler() {
     erreur.textContent = e.message;
     erreur.style.display = "block";
   } finally {
-    bouton.disabled = false;
+    btnReformuler.disabled = false;
+    btnEmojis.disabled = false;
     bouton.textContent = libelle;
   }
 }
 
-document.getElementById("btnReformuler").onclick = reformuler;
+document.getElementById("btnReformuler").onclick = () => appelEIA("reformuler");
+document.getElementById("btnEmojis").onclick = () => appelEIA("emojis");
 
 document.getElementById("btnAnnulerIA").onclick = () => {
   if (texteOriginal !== null) {
