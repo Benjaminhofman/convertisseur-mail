@@ -276,6 +276,10 @@ Cordialement,"></textarea>
 
   <!-- ===== Aperçu ===== -->
   <div class="preview-wrap">
+    <div id="bandeauApercu" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:12px;">
+      <span>✏️ Aperçu modifié manuellement — les modifications du formulaire écraseront ces retouches.</span>
+      <button type="button" id="btnAnnulerRetouches" class="btn-link" style="white-space:nowrap; padding:0;">Annuler les retouches</button>
+    </div>
     <div class="mailframe">
       <div class="bar"><i></i><i></i><i></i><span>Aperçu du mail</span></div>
       <iframe id="preview" title="Aperçu du mail généré"></iframe>
@@ -629,12 +633,42 @@ function buildEmailFragment(){
   return construireMail().fragment;
 }
 
-/* ===== Rendu live ===== */
+/* ===== Rendu live + aperçu éditable ===== */
+let apercuModifie = false;
+
+function marquerApercuModifie(){
+  if(!apercuModifie){
+    apercuModifie = true;
+    $("bandeauApercu").style.display = "flex";
+  }
+}
+
+function activerEditionApercu(){
+  const iframeDoc = $("preview").contentDocument;
+  if(!iframeDoc || !iframeDoc.body) return;
+  iframeDoc.body.contentEditable = "true";
+  try{ iframeDoc.designMode = "on"; }catch(e){}
+  iframeDoc.body.addEventListener("input", marquerApercuModifie);
+}
+
+$("preview").addEventListener("load", activerEditionApercu);
+
 function render(){
+  if(apercuModifie){
+    const continuer = confirm("Vos retouches manuelles dans l'aperçu seront perdues. Continuer ?");
+    if(!continuer) return;
+  }
+  apercuModifie = false;
+  $("bandeauApercu").style.display = "none";
   const html = buildEmail();
   $("preview").srcdoc = html;
   $("code").textContent = html;
 }
+
+$("btnAnnulerRetouches").onclick = () => {
+  apercuModifie = false;
+  render();
+};
 
 /* ===== Actions ===== */
 function showToast(msg){
@@ -644,9 +678,22 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove("show"), 2200);
 }
 
+/* Réenveloppe dans une table si le contenu édité manuellement n'est plus table-rooted */
+function assurerEnveloppeTable(html){
+  if(html.trim().toLowerCase().startsWith("<table")) return html;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td>${html}</td></tr></table>`;
+}
+
 $("btnCopyRendu").onclick = async ()=>{
-  const fragment = buildEmailFragment();
-  const texteBrut = document.getElementById("corps").value;
+  let fragment, texteBrut;
+  if(apercuModifie){
+    const iframeDoc = $("preview").contentDocument;
+    fragment = assurerEnveloppeTable(iframeDoc.body.innerHTML);
+    texteBrut = iframeDoc.body.innerText;
+  }else{
+    fragment = buildEmailFragment();
+    texteBrut = document.getElementById("corps").value;
+  }
   let succes = false;
 
   try{
