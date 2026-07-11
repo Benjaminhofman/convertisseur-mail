@@ -391,9 +391,10 @@ function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-/* ===== Échappement + gestion du **gras** ===== */
-function formatGras(s){
-  return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+/* ===== Échappement + gestion du **gras** (avec filet de sécurité astérisques orphelines) ===== */
+function formatGras(s, color){
+  const converti = esc(s).replace(/\*\*(.+?)\*\*/g, (m, inner) => `<strong style="color:${color};">${inner}</strong>`);
+  return converti.replace(/\*\*/g, "");
 }
 
 /* ===== Éclaircissement d'une couleur hex (mélange avec du blanc) ===== */
@@ -420,15 +421,15 @@ function currentStyleEntete(){
 }
 
 /* ===== Liste à puces email-safe (une table par item) ===== */
-function renderListe(lignes, accent){
+function renderListe(lignes, main, accent){
   const items = lignes.map(ligne=>{
     const texteItem = ligne.trim().replace(/^- /, "");
     return `          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
             <tr>
-              <td width="18" valign="top" style="padding-top:7px;">
-                <div style="width:8px; height:8px; background-color:${accent};"></div>
+              <td width="18" valign="top" style="padding-top:3px;">
+                <span style="font-family:Arial,Helvetica,sans-serif; font-size:12px; color:${accent};">■</span>
               </td>
-              <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333; padding-bottom:6px;">${formatGras(texteItem)}</td>
+              <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333; padding-bottom:6px;">${formatGras(texteItem, main)}</td>
             </tr>
           </table>`;
   }).join("\n");
@@ -457,13 +458,13 @@ function renderTableau(lignes, main, bg){
   });
 
   const ligneEntete = `          <tr>${entetes.map(c=>
-    `<td style="background-color:${main}; color:#ffffff; font-weight:bold; font-size:13px; padding:10px 14px;">${formatGras(c)}</td>`
+    `<td style="background-color:${main}; color:#ffffff; font-weight:bold; font-size:13px; padding:10px 14px;">${formatGras(c, "#ffffff")}</td>`
   ).join("")}</tr>`;
 
   const lignesDonnees = donnees.map((row,i)=>{
     const fondAlterne = (i % 2 === 1) ? ` background-color:${bg};` : "";
     return `          <tr>${row.map(c=>
-      `<td style="font-size:14px; color:#333333; padding:9px 14px; border-top:1px solid #E3E3E3;${fondAlterne}">${formatGras(c)}</td>`
+      `<td style="font-size:14px; color:#333333; padding:9px 14px; border-top:1px solid #E3E3E3;${fondAlterne}">${formatGras(c, main)}</td>`
     ).join("")}</tr>`;
   }).join("\n");
 
@@ -480,7 +481,7 @@ function textToHtml(txt, main, accent, bg, sep){
   }
 
   const paraHtml = (text, size) =>
-    `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${esc(text).replace(/\n/g,"<br>")}</p>`;
+    `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${formatGras(text, main).replace(/\n/g,"<br>")}</p>`;
 
   const items = [];
   let paraIndex = 0;
@@ -489,13 +490,13 @@ function textToHtml(txt, main, accent, bg, sep){
     const lines = block.split('\n');
     const firstLine = lines[0].trim();
     if(firstLine.startsWith('## ')){
-      const headingText = esc(firstLine.slice(3).trim());
+      const headingText = formatGras(firstLine.slice(3).trim(), main);
       const marginTop = headingIndex===0 ? 8 : 26;
       headingIndex++;
       items.push({type:'heading', html:
 `        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${marginTop}px 0 12px 0;">
           <tr>
-            <td style="width:10px; height:10px; background-color:${accent}; font-size:0; line-height:0;">&nbsp;</td>
+            <td valign="middle"><span style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent};">■</span></td>
             <td style="padding-left:10px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${headingText}</td>
           </tr>
         </table>`});
@@ -508,7 +509,7 @@ function textToHtml(txt, main, accent, bg, sep){
     } else if(lines.every(l=>l.trim().startsWith('|') && l.trim().endsWith('|'))){
       items.push({type:'table', html: renderTableau(lines, main, bg)});
     } else if(lines.every(l=>l.trim().startsWith('- '))){
-      items.push({type:'list', html: renderListe(lines, accent)});
+      items.push({type:'list', html: renderListe(lines, main, accent)});
     } else {
       const size = paraIndex===0 ? 16 : 15;
       paraIndex++;
@@ -519,7 +520,7 @@ function textToHtml(txt, main, accent, bg, sep){
   const sepHtml = sep==='line'
     ? `        <div style="border-top:1px solid #E3E3E3; margin:18px 0;"></div>`
     : sep==='dash'
-      ? `        <div style="width:36px; border-top:2px solid ${accent}; margin:18px auto;"></div>`
+      ? `        <p style="margin:18px 0; text-align:center; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:2px;">———</p>`
       : null;
 
   const out = [];
@@ -546,7 +547,7 @@ function construireMail(){
   const mail    = esc($("mail").value.trim());
   const corpsRaw = $("corps").value.trim();
   const corps    = textToHtml($("corps").value, main, accent, bg, currentSeparator());
-  const preheader = esc(corpsRaw.replace(/\s+/g," ").slice(0,90));
+  const preheader = esc(corpsRaw.replace(/\*\*/g,"").replace(/\s+/g," ").slice(0,90));
   const imgUrl   = esc($("imgUrl").value.trim());
 
   const dateJour = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -578,9 +579,7 @@ function construireMail(){
   const blocSobre = styleEntete==='sobre' ? `                <tr>
                   <td style="padding:32px 0 0 0;">
                     <h1 style="margin:8px 0 4px 0; font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:${main};">${entete}</h1>
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
-                      <tr><td width="40" height="2" style="background-color:${accent}; font-size:0; line-height:0;">&nbsp;</td></tr>
-                    </table>
+                    <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:1px;">———</p>
                     <div style="height:18px; line-height:18px; font-size:0;">&nbsp;</div>
                   </td>
                 </tr>` : "";
