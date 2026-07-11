@@ -204,9 +204,9 @@ Cordialement,"></textarea>
 
       <div class="actions" style="margin-top:8px;">
         <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
-        <button type="button" class="ghost" id="btnAnnulerReformulation" style="display:none;">Annuler la reformulation</button>
+        <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
       </div>
-      <p class="error-text" id="reformulerError" style="display:none;"></p>
+      <p class="error-text" id="erreurIA" style="display:none;"></p>
       <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
 
       <div class="sep-options">
@@ -556,46 +556,63 @@ $("btnDownload").onclick = ()=>{
   URL.revokeObjectURL(a.href);
 };
 
-let corpsAvantReformulation = null;
+let texteOriginal = null;
 
-$("btnReformuler").onclick = async ()=>{
-  const texte = $("corps").value.trim();
-  if(!texte) return;
-  const btn = $("btnReformuler");
-  const errEl = $("reformulerError");
-  const label = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Reformulation en cours…";
-  errEl.style.display = "none";
-  errEl.textContent = "";
-  try{
-    const res = await fetch("/api/reformuler", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ texte, ton: $("tonStyle").value })
+async function reformuler() {
+  const corps  = document.getElementById("corps");
+  const bouton = document.getElementById("btnReformuler");
+  const annuler= document.getElementById("btnAnnulerIA");
+  const erreur = document.getElementById("erreurIA");
+  const ton    = document.getElementById("tonStyle").value;
+
+  erreur.style.display = "none";
+  const source = (texteOriginal !== null) ? texteOriginal : corps.value;
+  if (!source.trim()) {
+    erreur.textContent = "Saisissez d'abord le texte du mail.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  bouton.disabled = true;
+  const libelle = bouton.textContent;
+  bouton.textContent = "Reformulation en cours…";
+
+  try {
+    const r = await fetch("/api/reformuler", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texte: source, ton: ton })
     });
-    const data = await res.json();
-    if(!res.ok) throw new Error(data.error || "Erreur lors de la reformulation.");
-    corpsAvantReformulation = texte;
-    $("corps").value = data.texte;
-    $("btnAnnulerReformulation").style.display = "";
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Erreur serveur.");
+    if (texteOriginal === null) texteOriginal = corps.value;
+    corps.value = data.texte;
+    annuler.style.display = "inline-block";
     render();
-  }catch(e){
-    errEl.textContent = e.message;
-    errEl.style.display = "block";
-  }finally{
-    btn.disabled = false;
-    btn.textContent = label;
+  } catch (e) {
+    erreur.textContent = e.message;
+    erreur.style.display = "block";
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = libelle;
+  }
+}
+
+document.getElementById("btnReformuler").onclick = reformuler;
+
+document.getElementById("btnAnnulerIA").onclick = () => {
+  if (texteOriginal !== null) {
+    document.getElementById("corps").value = texteOriginal;
+    texteOriginal = null;
+    document.getElementById("btnAnnulerIA").style.display = "none";
+    render();
   }
 };
 
-$("btnAnnulerReformulation").onclick = ()=>{
-  if(corpsAvantReformulation===null) return;
-  $("corps").value = corpsAvantReformulation;
-  corpsAvantReformulation = null;
-  $("btnAnnulerReformulation").style.display = "none";
-  render();
-};
+document.getElementById("corps").addEventListener("input", () => {
+  texteOriginal = null;
+  document.getElementById("btnAnnulerIA").style.display = "none";
+});
 
 /* ===== Écouteurs ===== */
 ["entete","corps","prenom","nom","fonction","cabinet","tel","mail","c1","c2","c3"]

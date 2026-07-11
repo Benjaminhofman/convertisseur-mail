@@ -1,71 +1,60 @@
-import express from 'express';
+import express from "express";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json({ limit: "1mb" }));
+app.use(express.static("."));
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static('.'));
-
-app.post('/api/reformuler', async (req, res) => {
-  const { texte: texteBrut, ton: tonBrut } = req.body || {};
-  const texte = (texteBrut || '').trim();
-  const ton = (tonBrut || '').trim() || 'professionnel et courtois';
-
-  if (!texte || texte.length > 15000) {
-    return res.status(400).json({ error: 'Texte manquant ou trop long.' });
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Clé API non configurée sur le serveur.' });
-  }
-
-  const messages = [
-    {
-      role: 'system',
-      content: `Tu reformules des emails professionnels rédigés par un expert-comptable français. Améliore la clarté, la structure et l'orthographe en conservant STRICTEMENT le sens, les montants, les dates et les délais. Conserve tels quels les marqueurs de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**. Quel que soit le ton demandé, conserve les formules de politesse de la correspondance professionnelle française. Réponds UNIQUEMENT avec le texte reformulé.
-
-CONSIGNE DE TON IMPÉRATIVE : rédige sur un ton ${ton}.`
-    },
-    {
-      role: 'user',
-      content: `Texte à reformuler :\n\n${texte}`
-    }
-  ];
-
+app.post("/api/reformuler", async (req, res) => {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const { texte, ton } = req.body || {};
+    if (!texte || !String(texte).trim())
+      return res.status(400).json({ error: "Texte manquant." });
+    if (String(texte).length > 15000)
+      return res.status(400).json({ error: "Texte trop long (max 15 000 caractères)." });
+
+    const cle = process.env.OPENAI_API_KEY;
+    if (!cle)
+      return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
+
+    const tonFinal = (ton && String(ton).trim()) || "professionnel et courtois";
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + cle
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        temperature: 0.4,
-        messages
+        model: "gpt-4o-mini",
+        temperature: 0.7,
+        messages: [
+          {
+            role: "system",
+            content:
+`Tu reformules des emails professionnels rédigés par un expert-comptable français.
+Améliore la clarté, la structure et l'orthographe en conservant STRICTEMENT le sens, les montants, les dates et les délais.
+Conserve tels quels les marqueurs de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**.
+Conserve les formules de politesse de la correspondance professionnelle française, sans jamais devenir familier.
+Réponds UNIQUEMENT avec le texte reformulé, sans préambule ni commentaire.
+
+CONSIGNE DE TON IMPÉRATIVE : rédige l'ensemble du mail sur un ton ${tonFinal}. Le ton doit être clairement perceptible dès la première phrase.`
+          },
+          { role: "user", content: "Texte à reformuler :\n\n" + texte }
+        ]
       })
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        return res.status(401).json({ error: 'Clé API invalide.' });
-      }
-      if (response.status === 429) {
-        return res.status(429).json({ error: 'Quota OpenAI dépassé.' });
-      }
-      return res.status(response.status).json({ error: data?.error?.message || 'Erreur lors de la reformulation.' });
+    const data = await r.json();
+    if (!r.ok) {
+      const msg = r.status === 401 ? "Clé API invalide ou expirée."
+        : r.status === 429 ? "Quota OpenAI dépassé — réessayez dans un instant."
+        : (data.error && data.error.message) || "Erreur OpenAI.";
+      return res.status(r.status).json({ error: msg });
     }
-
-    res.json({ texte: data.choices[0].message.content.trim() });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur lors de la reformulation.' });
+    return res.json({ texte: data.choices[0].message.content.trim() });
+  } catch (e) {
+    return res.status(500).json({ error: "Erreur serveur : " + e.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Serveur démarré sur http://localhost:${PORT}`);
-});
+app.listen(process.env.PORT || 3000);
