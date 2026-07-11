@@ -208,6 +208,11 @@ Cordialement,"></textarea>
         <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
       </div>
       <p class="error-text" id="erreurIA" style="display:none;"></p>
+      <p class="hint">En utilisant la reformulation, le texte du mail est transmis à OpenAI (États-Unis). Selon la politique de l'API OpenAI, ces données ne servent pas à entraîner les modèles et sont conservées au maximum 30 jours à des fins de sécurité. Évitez d'y inclure des données sensibles, ou activez l'anonymisation ci-dessous.</p>
+      <label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:6px;">
+        <input type="checkbox" id="anonymiser" style="width:auto; margin:0;">
+        Anonymiser les données avant envoi à l'IA (noms, emails, téléphones, montants)
+      </label>
       <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
 
       <div class="sep-options">
@@ -585,7 +590,7 @@ async function appelEIA(action) {
     const r = await fetch("/api/reformuler", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texte: source, ton: ton, action: action })
+      body: JSON.stringify({ texte: source, ton: ton, action: action, anonymiser: document.getElementById("anonymiser").checked })
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Erreur serveur.");

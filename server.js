@@ -47,9 +47,62 @@ const TONS = {
 - conserver uniquement une ouverture et une clôture minimales ("Bonjour," / "Cordialement,").`
 };
 
+/* ===== Anonymisation réversible (emails, téléphones, montants, IBAN, SIREN/SIRET) ===== */
+function anonymiserTexte(texte) {
+  const table = {};
+  const compteurs = { EMAIL: 0, TEL: 0, MONTANT: 0, IBAN: 0, ID: 0 };
+  let out = texte;
+
+  function remplacerTous(re, prefixe) {
+    out = out.replace(re, (match) => {
+      compteurs[prefixe]++;
+      const jeton = `[${prefixe}_${compteurs[prefixe]}]`;
+      table[jeton] = match;
+      return jeton;
+    });
+  }
+
+  // Emails
+  remplacerTous(/[\w.+-]+@[\w-]+\.[A-Za-z]{2,}/g, "EMAIL");
+
+  // Téléphones FR : 0X XX XX XX XX ou +33/0033 X XX XX XX XX
+  remplacerTous(/(?:\+33|0033)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}|0[1-9](?:[\s.-]?\d{2}){4}/g, "TEL");
+
+  // Montants : nombres avec séparateurs de milliers (espace/point) et décimale virgule, suivis de €, EUR, euros
+  remplacerTous(/\d{1,3}(?:[ .]\d{3})*(?:,\d{2})?\s?(?:€|EUR\b|euros?\b)/gi, "MONTANT");
+
+  // IBAN FR (27 caractères au total : FR + 25), espaces tolérés dans le texte source
+  out = out.replace(/FR\d{2}(?:[ ]?[A-Z0-9]{4}){2,6}[ ]?[A-Z0-9]{0,4}/g, (match) => {
+    const compact = match.replace(/\s+/g, "");
+    if (compact.length !== 27) return match;
+    compteurs.IBAN++;
+    const jeton = `[IBAN_${compteurs.IBAN}]`;
+    table[jeton] = match;
+    return jeton;
+  });
+
+  // SIREN (9 chiffres) / SIRET (14 chiffres) consécutifs
+  remplacerTous(/\b\d{14}\b|\b\d{9}\b/g, "ID");
+
+  return { texteAnonymise: out, table };
+}
+
+function restaurerJetons(texte, table) {
+  let out = texte;
+  const jetonsManquants = [];
+  for (const [jeton, valeur] of Object.entries(table)) {
+    if (!out.includes(jeton)) {
+      jetonsManquants.push(jeton);
+      continue;
+    }
+    out = out.split(jeton).join(valeur);
+  }
+  return { texteRestaure: out, jetonsManquants };
+}
+
 app.post("/api/reformuler", async (req, res) => {
   try {
-    const { texte, ton, action } = req.body || {};
+    const { texte, ton, action, anonymiser } = req.body || {};
     if (!texte || !String(texte).trim())
       return res.status(400).json({ error: "Texte manquant." });
     if (String(texte).length > 15000)
@@ -60,6 +113,14 @@ app.post("/api/reformuler", async (req, res) => {
       return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
 
     const actionFinale = action === "emojis" ? "emojis" : "reformuler";
+
+    let texteEnvoye = texte;
+    let tableJetons = null;
+    if (anonymiser) {
+      const resultat = anonymiserTexte(texte);
+      texteEnvoye = resultat.texteAnonymise;
+      tableJetons = resultat.table;
+    }
 
     let systemPrompt, temperature, userPrefix;
     if (actionFinale === "emojis") {
@@ -96,6 +157,10 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
       userPrefix = "Texte à reformuler :\n\n";
     }
 
+    if (tableJetons) {
+      systemPrompt += `\n\nLe texte contient des jetons [EMAIL_n], [TEL_n], [MONTANT_n], [IBAN_n], [ID_n] : conserve-les STRICTEMENT tels quels, sans les modifier ni les déplacer hors de leur phrase.`;
+    }
+
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -107,7 +172,7 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
         temperature,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrefix + texte }
+          { role: "user", content: userPrefix + texteEnvoye }
         ]
       })
     });
@@ -119,7 +184,17 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
         : (data.error && data.error.message) || "Erreur OpenAI.";
       return res.status(r.status).json({ error: msg });
     }
-    return res.json({ texte: data.choices[0].message.content.trim() });
+
+    let texteResultat = data.choices[0].message.content.trim();
+    if (tableJetons) {
+      const { texteRestaure, jetonsManquants } = restaurerJetons(texteResultat, tableJetons);
+      if (jetonsManquants.length > 0) {
+        return res.status(422).json({ error: "L'anonymisation n'a pas pu être restaurée fidèlement — réessayez." });
+      }
+      texteResultat = texteRestaure;
+    }
+
+    return res.json({ texte: texteResultat });
   } catch (e) {
     return res.status(500).json({ error: "Erreur serveur : " + e.message });
   }
