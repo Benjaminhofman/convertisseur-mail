@@ -260,10 +260,15 @@ function esc(s){
 
 /* ===== Texte → paragraphes HTML ===== */
 function textToHtml(txt, colorMain){
-  return txt.split(/\n{2,}/).filter(p=>p.trim()!=="").map(p=>{
+  const paras = txt.split(/\n{2,}/).filter(p=>p.trim()!=="");
+  if(paras.length===0){
+    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
+  }
+  return paras.map((p,i)=>{
     const lines = esc(p.trim()).replace(/\n/g,"<br>");
-    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">${lines}</p>`;
-  }).join("\n") || `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
+    const size = i===0 ? 16 : 15;
+    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${lines}</p>`;
+  }).join("\n");
 }
 
 /* ===== Génération du mail HTML (tableaux + styles inline) ===== */
@@ -276,12 +281,17 @@ function buildEmail(){
   const cabinet = esc($("cabinet").value.trim());
   const tel     = esc($("tel").value.trim());
   const mail    = esc($("mail").value.trim());
-  const corps   = textToHtml($("corps").value, main);
+  const corpsRaw = $("corps").value.trim();
+  const corps    = textToHtml($("corps").value, main);
+  const preheader = esc(corpsRaw.replace(/\s+/g," ").slice(0,90));
+
+  const dateJour = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
+  const kicker = ((cabinet ? cabinet + " — " : "") + dateJour).toUpperCase();
 
   const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prénom Nom";
-  const sigLines = [];
-  if(fonction) sigLines.push(fonction);
-  if(cabinet)  sigLines.push(cabinet);
+  const hasName  = Boolean(prenom || nom);
+  const initials = ((prenom.charAt(0)||"") + (nom.charAt(0)||"")).toUpperCase();
+  const sigMeta  = [fonction, cabinet].filter(Boolean).join(" · ");
   const contact = [];
   if(tel)  contact.push(`Tél. ${tel}`);
   if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${mail}</a>`);
@@ -294,32 +304,40 @@ function buildEmail(){
 <title>${entete}</title>
 </head>
 <body style="margin:0; padding:0; background-color:${bg};">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preheader}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
     <tr>
       <td align="center" style="padding:0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background-color:#ffffff;">
           <!-- Entête -->
           <tr>
-            <td style="background-color:${main}; padding:28px 32px;">
-              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:21px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
-              <div style="height:3px; width:56px; background-color:${accent}; margin-top:12px;"></div>
+            <td style="background-color:${main}; padding:32px;">
+              <p style="margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:1.5px; color:${accent}; font-weight:bold;">${kicker}</p>
+              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:24px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
+              <div style="height:3px; width:64px; background-color:${accent}; margin-top:12px;"></div>
             </td>
           </tr>
-          <!-- Corps -->
+          <!-- Corps + Signature (largeur de lecture limitée) -->
           <tr>
-            <td style="padding:30px 32px 10px 32px;">
-${corps}
-            </td>
-          </tr>
-          <!-- Signature -->
-          <tr>
-            <td style="padding:10px 32px 30px 32px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
+            <td style="padding:0 32px;">
+              <table role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; width:100%;">
                 <tr>
-                  <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
-                    <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${fullName}</p>
-${sigLines.map(l=>`                    <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${l}</p>`).join("\n")}
-${contact.length?`                    <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
+                  <td style="padding:30px 0 10px 0;">
+${corps}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 0 30px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
+                      <tr>
+${hasName?`                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>`:""}
+                        <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
+                          <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${fullName}</p>
+${sigMeta?`                          <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${sigMeta}</p>`:""}
+${contact.length?`                          <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -328,7 +346,7 @@ ${contact.length?`                    <p style="margin:6px 0 0 0; font-size:13px
           <!-- Pied -->
           <tr>
             <td style="background-color:${bg}; padding:14px 32px; border-top:1px solid #e6e6e6;">
-              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#8a8a8a;">Ce message et ses pièces jointes sont confidentiels et destinés exclusivement à leur destinataire.</p>
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#8a8a8a;">${cabinet?cabinet+" — ":""}Ce message et ses pièces jointes sont confidentiels et destinés exclusivement à leur destinataire.</p>
             </td>
           </tr>
         </table>
