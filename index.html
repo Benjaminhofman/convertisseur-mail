@@ -125,6 +125,7 @@
   button.primary:hover{background:var(--accent-dark)}
   button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
   button.ghost:hover{border-color:var(--ink-soft)}
+  button:disabled{opacity:.6;cursor:not-allowed}
 
   /* Preview panel */
   .preview-wrap{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -188,6 +189,9 @@
 Nous vous rappelons que...
 
 Cordialement,"></textarea>
+      <div class="actions" style="margin-top:8px;">
+        <button type="button" class="ghost" id="btnReformuler">Reformuler avec l'IA</button>
+      </div>
       <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
 
       <div class="sep-options">
@@ -535,6 +539,35 @@ $("btnDownload").onclick = ()=>{
   a.download = "mail.html";
   a.click();
   URL.revokeObjectURL(a.href);
+};
+
+$("btnReformuler").onclick = async ()=>{
+  const texte = $("corps").value.trim();
+  if(!texte) return;
+  const btn = $("btnReformuler");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Reformulation…";
+  const t = $("toast");
+  try{
+    const res = await fetch("/api/reformuler", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ texte })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.erreur || "Erreur");
+    $("corps").value = data.texte;
+    render();
+    t.textContent = "Texte reformulé";
+  }catch(e){
+    t.textContent = "Échec de la reformulation";
+  }finally{
+    btn.disabled = false;
+    btn.textContent = label;
+    t.classList.add("show");
+    setTimeout(()=>{ t.classList.remove("show"); t.textContent = "HTML copié dans le presse-papiers"; }, 2200);
+  }
 };
 
 /* ===== Écouteurs ===== */
