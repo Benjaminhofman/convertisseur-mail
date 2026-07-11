@@ -7,8 +7,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.static('.'));
 
 app.post('/api/reformuler', async (req, res) => {
-  const texte = (req.body?.texte || '').trim();
-  const ton = (req.body?.ton || '').trim() || 'professionnel et courtois';
+  const { texte: texteBrut, ton: tonBrut } = req.body || {};
+  const texte = (texteBrut || '').trim();
+  const ton = (tonBrut || '').trim() || 'professionnel et courtois';
 
   if (!texte || texte.length > 15000) {
     return res.status(400).json({ error: 'Texte manquant ou trop long.' });
@@ -18,6 +19,19 @@ app.post('/api/reformuler', async (req, res) => {
   if (!apiKey) {
     return res.status(500).json({ error: 'Clé API non configurée sur le serveur.' });
   }
+
+  const messages = [
+    {
+      role: 'system',
+      content: `Tu reformules des emails professionnels rédigés par un expert-comptable français. Améliore la clarté, la structure et l'orthographe en conservant STRICTEMENT le sens, les montants, les dates et les délais. Conserve tels quels les marqueurs de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**. Quel que soit le ton demandé, conserve les formules de politesse de la correspondance professionnelle française. Réponds UNIQUEMENT avec le texte reformulé.
+
+CONSIGNE DE TON IMPÉRATIVE : rédige sur un ton ${ton}.`
+    },
+    {
+      role: 'user',
+      content: `Texte à reformuler :\n\n${texte}`
+    }
+  ];
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -29,21 +43,7 @@ app.post('/api/reformuler', async (req, res) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         temperature: 0.4,
-        messages: [
-          {
-            role: 'system',
-            content:
-              "Tu reformules des emails professionnels rédigés par un expert-comptable français. Améliore la clarté, la structure et " +
-              "l'orthographe en conservant STRICTEMENT le sens, les montants, les dates et les délais. Conserve tels quels les marqueurs " +
-              "de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**. Adapte le ton selon la consigne. " +
-              "Quel que soit le ton demandé, conserve les formules de politesse d'usage dans la correspondance professionnelle " +
-              "française et ne rends jamais le propos familier. Réponds UNIQUEMENT avec le texte reformulé, sans préambule ni commentaire."
-          },
-          {
-            role: 'user',
-            content: `Consigne de ton : ${ton}. Texte à reformuler :\n\n${texte}`
-          }
-        ]
+        messages
       })
     });
 
