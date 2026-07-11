@@ -5,23 +5,46 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.static("."));
 
 const TONS = {
-  "professionnel et courtois": `Ton professionnel et courtois, registre standard de la correspondance de cabinet. Formules d'usage classiques.`,
+  "professionnel et courtois": `Ton professionnel et courtois, adapté à toute correspondance de travail. TU DOIS :
+- employer un registre soutenu mais fluide, sans jargon inutile ;
+- ouvrir par une formule adaptée au contexte du mail (Bonjour, Madame, Monsieur, ...) et clore par une formule de politesse professionnelle proportionnée (ni sèche ni pompeuse) ;
+- structurer les idées dans un ordre logique : contexte, demande ou information, prochaine étape.`,
 
-  "amical et chaleureux, tout en restant professionnel": `Ton chaleureux et personnel. TU DOIS notamment :
-- remplacer l'ouverture protocolaire par une ouverture cordiale (ex. "Chère cliente, cher client," ou "Bonjour," suivi d'une phrase d'attention sincère) ;
-- remplacer la formule finale protocolaire ("Nous vous prions d'agréer...") par une clôture chaleureuse (ex. "Nous restons à vos côtés — au plaisir de vous lire," ou "Bien chaleureusement,") ;
-- privilégier des tournures directes et positives ("nous serons ravis de", "n'hésitez surtout pas", "avec plaisir") ;
-- alléger les lourdeurs administratives ("S'agissant de" → "Côté cotisations sociales", "Par ailleurs" → "Autre point important").`,
+  "amical et chaleureux, tout en restant professionnel": `Ton chaleureux et personnel. TU DOIS :
+- ouvrir cordialement (ex. "Bonjour [•]," suivi d'une courte phrase d'attention sincère adaptée au sujet du mail) ;
+- clore par une formule chaleureuse ("Au plaisir d'échanger,", "Bien à vous," "À très bientôt,") plutôt que protocolaire ;
+- privilégier des tournures positives et directes ("avec plaisir", "n'hésitez surtout pas", "ravi de") ;
+- alléger les formulations administratives ou figées au profit d'un langage naturel, comme on écrirait à quelqu'un qu'on apprécie.`,
 
-  "formel et solennel, adapté à une administration ou un courrier officiel": `Ton solennel : tournures impersonnelles, vocabulaire juridique précis, formules protocolaires complètes, aucune familiarité.`,
+  "formel et solennel, adapté à une administration ou un courrier officiel": `Ton solennel de courrier officiel. TU DOIS :
+- employer des tournures impersonnelles et un vocabulaire précis ;
+- utiliser les formules protocolaires complètes en ouverture et en clôture ("Je vous prie d'agréer, ..., l'expression de ...") ;
+- citer explicitement les références utiles présentes dans le texte (dossier, article, date de courrier précédent) ;
+- bannir toute familiarité, exclamation ou tournure relâchée.`,
 
-  "ferme mais courtois, adapté à une relance": `Ton ferme : rappels explicites des demandes antérieures, échéances mises en avant, conséquences d'un retard mentionnées factuellement, courtoisie maintenue mais sans adoucissement excessif.`,
+  "ferme mais courtois, adapté à une relance": `Ton ferme de relance. TU DOIS :
+- rappeler explicitement la ou les demandes précédentes et leur date si le texte les mentionne ;
+- mettre les échéances et attentes en évidence, avec une formulation directive ("nous attendons", "il est impératif", "au plus tard le") ;
+- énoncer factuellement les conséquences d'une absence de réponse si le texte s'y prête, sans menace ni agressivité ;
+- rester courtois mais sans adoucisseurs excessifs ("peut-être", "si possible", "quand vous aurez un moment" sont à proscrire).`,
 
-  "rassurant et empathique, adapté à un client en difficulté": `Ton rassurant : reconnaître la situation sans dramatiser, insister sur l'accompagnement du cabinet et les solutions concrètes, formulations apaisantes ("nous allons avancer ensemble", "des solutions existent").`,
+  "rassurant et empathique, adapté à un client en difficulté": `Ton rassurant et empathique. TU DOIS :
+- reconnaître la situation ou la difficulté évoquée sans la dramatiser ni la minimiser ;
+- insister sur l'accompagnement et les solutions concrètes ("nous allons avancer ensemble", "des solutions existent", "voici les prochaines étapes") ;
+- employer des phrases calmes et courtes dans les passages sensibles ;
+- clore sur une note positive et une disponibilité affirmée.`,
 
-  "pédagogue et accessible, en vulgarisant les notions techniques": `Ton pédagogue : expliquer brièvement chaque notion technique entre parenthèses ou par une phrase simple, phrases courtes, exemples concrets si utile.`,
+  "pédagogue et accessible, en vulgarisant les notions techniques": `Ton pédagogue. TU DOIS :
+- expliquer chaque notion technique ou sigle dès sa première apparition (parenthèse courte ou phrase simple) ;
+- préférer des phrases courtes, une idée par phrase ;
+- utiliser si utile une analogie simple ou un exemple concret ;
+- t'assurer qu'un lecteur non spécialiste comprendrait chaque paragraphe sans connaissance préalable.`,
 
-  "concis et factuel, en allant à l'essentiel": `Ton concis : phrases courtes, suppression des tournures de remplissage, une idée par phrase, réduire la longueur totale d'au moins 30 %.`
+  "concis et factuel, en allant à l'essentiel": `Ton concis. TU DOIS :
+- réduire la longueur totale d'au moins 30 % ;
+- supprimer les tournures de remplissage, redondances et précautions oratoires ;
+- une idée par phrase, phrases courtes ;
+- conserver uniquement une ouverture et une clôture minimales ("Bonjour," / "Cordialement,").`
 };
 
 app.post("/api/reformuler", async (req, res) => {
@@ -41,12 +64,12 @@ app.post("/api/reformuler", async (req, res) => {
     let systemPrompt, temperature, userPrefix;
     if (actionFinale === "emojis") {
       systemPrompt =
-`Tu ajoutes des émojis dans un email professionnel rédigé par un expert-comptable français.
+`Tu ajoutes des émojis dans un email rédigé en français, quel que soit son contexte : professionnel, commercial, administratif, associatif ou personnel.
 RÈGLES STRICTES :
 - Ne modifie RIEN au texte : pas un mot, pas une virgule, pas un chiffre. Tu ne fais qu'INSÉRER des émojis.
 - Insère un émoji pertinent en fin de certains intertitres (lignes commençant par ## ou ###) et éventuellement en fin de quelques phrases clés du corps.
 - Maximum 1 émoji par paragraphe et 8 émojis au total. La sobriété prime : mieux vaut trop peu que trop.
-- Émojis adaptés au contexte professionnel et comptable : 📅 ⏰ 📊 📈 ✅ ⚠️ 💡 📌 🧾 ✉️ 🤝. Jamais d'émojis fantaisistes ou familiers.
+- Émojis adaptés au contexte du mail : 📅 ⏰ ✅ ⚠️ 💡 📌 ✉️ 🤝 🎉 👍 🙏 📍. Jamais d'émojis fantaisistes ou familiers.
 - Conserve tels quels les marqueurs ##, ###, >, !!, [[...]] et les **gras**.
 - Réponds UNIQUEMENT avec le texte enrichi, sans commentaire.`;
       temperature = 0.4;
@@ -55,13 +78,14 @@ RÈGLES STRICTES :
       const tonFinal = (ton && String(ton).trim()) || "professionnel et courtois";
       const consigneTon = TONS[tonFinal] || TONS["professionnel et courtois"];
       systemPrompt =
-`Tu reformules des emails professionnels rédigés par un expert-comptable français.
+`Tu reformules des emails rédigés en français, quel que soit leur contexte : professionnel, commercial, administratif, associatif ou personnel.
 
 INVARIANTS ABSOLUS (priorité maximale) :
 - Les montants, taux, dates, délais, références légales et noms propres sont conservés STRICTEMENT à l'identique.
 - Le sens de chaque information est conservé : ne reformule jamais une phrase au point d'en changer la portée (qui fait quoi, qui doit transmettre quoi à qui).
 - Les marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**) sont conservés tels quels.
 - Conserve les formules de politesse de la correspondance professionnelle française, sans jamais devenir familier.
+- N'invente aucune information : si une formule d'ouverture chaleureuse ou une référence serait naturelle mais que le texte ne fournit pas l'information (prénom du destinataire, contexte), reste générique plutôt que d'inventer.
 
 STYLE À APPLIQUER (dans le respect des invariants) :
 ${consigneTon}
