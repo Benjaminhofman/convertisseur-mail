@@ -273,6 +273,7 @@ Cordialement,"></textarea>
       <button class="ghost" id="btnCopy">Copier le code HTML</button>
       <button class="ghost" id="btnDownload">Télécharger .html</button>
     </div>
+    <p class="hint">Fonctionne avec Gmail, Outlook, Apple Mail, Thunderbird et la plupart des messageries. Collez directement dans la fenêtre de rédaction.</p>
   </section>
 
   <!-- ===== Aperçu ===== -->
@@ -519,7 +520,8 @@ function textToHtml(txt, main, accent, bg, sep){
 }
 
 /* ===== Génération du mail HTML (tableaux + styles inline) ===== */
-function buildEmail(){
+/* ===== Génère les données + le fragment partagés par buildEmail() et buildEmailFragment() ===== */
+function construireMail(){
   const [main, accent, bg] = currentColors();
   const entete  = esc($("entete").value.trim()) || "Entête du mail";
   const prenom  = esc($("prenom").value.trim());
@@ -545,16 +547,7 @@ function buildEmail(){
   if(tel)  contact.push(`Tél. ${tel}`);
   if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${mail}</a>`);
 
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${entete}</title>
-</head>
-<body style="margin:0; padding:0; background-color:${bg};">
-  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
+  const fragment = `  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
     <tr>
       <td align="center" style="padding:0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background-color:#ffffff;">
@@ -611,9 +604,31 @@ ${contact.length?`                          <p style="margin:6px 0 0 0; font-siz
         </table>
       </td>
     </tr>
-  </table>
+  </table>`;
+
+  return { entete, bg, preheader, fragment };
+}
+
+/* ===== Mail complet (document HTML autonome) : téléchargement + code affiché ===== */
+function buildEmail(){
+  const { entete, bg, preheader, fragment } = construireMail();
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${entete}</title>
+</head>
+<body style="margin:0; padding:0; background-color:${bg};">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preheader}</div>
+${fragment}
 </body>
 </html>`;
+}
+
+/* ===== Fragment sans enveloppe de document, pour la copie riche ===== */
+function buildEmailFragment(){
+  return construireMail().fragment;
 }
 
 /* ===== Rendu live ===== */
@@ -632,23 +647,46 @@ function showToast(msg){
 }
 
 $("btnCopyRendu").onclick = async ()=>{
-  const html = buildEmail();
+  const fragment = buildEmailFragment();
+  const texteBrut = document.getElementById("corps").value;
+  let succes = false;
+
   try{
-    const blob = new Blob([html], { type: "text/html" });
-    const texte = new Blob([document.getElementById("corps").value], { type: "text/plain" });
+    const blobHtml = new Blob([fragment], { type: "text/html" });
+    const blobTexte = new Blob([texteBrut], { type: "text/plain" });
     await navigator.clipboard.write([
-      new ClipboardItem({ "text/html": blob, "text/plain": texte })
+      new ClipboardItem({ "text/html": blobHtml, "text/plain": blobTexte })
     ]);
-    showToast("Mail copié — collez-le directement dans Gmail ou Outlook.");
+    succes = true;
   }catch(e){
+    // Repli : sélection DOM + execCommand("copy") — copie aussi le rendu riche (pas juste le texte)
     try{
-      await navigator.clipboard.writeText(html);
+      const div = document.createElement("div");
+      div.style.cssText = "position:absolute; left:-9999px;";
+      div.innerHTML = fragment;
+      document.body.appendChild(div);
+
+      const range = document.createRange();
+      range.selectNodeContents(div);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      succes = document.execCommand("copy");
+
+      selection.removeAllRanges();
+      document.body.removeChild(div);
     }catch(e2){
-      const ta = document.createElement("textarea");
-      ta.value = html; document.body.appendChild(ta);
-      ta.select(); document.execCommand("copy"); ta.remove();
+      succes = false;
     }
-    showToast("Copie enrichie non supportée par ce navigateur — code HTML copié à la place.");
+  }
+
+  if(succes){
+    showToast("Mail copié — collez-le dans le corps d'un nouveau message (Ctrl+V).");
+  }else{
+    const erreur = $("erreurIA");
+    erreur.textContent = "La copie a échoué. Utilisez plutôt \"Copier le code HTML\" ou \"Télécharger .html\".";
+    erreur.style.display = "block";
   }
 };
 
