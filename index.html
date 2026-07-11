@@ -91,6 +91,22 @@
   .custom-colors input[type=color]{width:64px;height:36px;border:1px solid var(--line);border-radius:6px;padding:2px;background:#fff;cursor:pointer}
   .custom-colors span{font-size:.72rem;font-weight:600;color:var(--ink-soft)}
 
+  /* Galerie image d'entête */
+  .hdr-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 10px}
+  .hdr-gallery img{
+    height:56px;width:100%;object-fit:cover;border-radius:6px;
+    border:2px solid transparent;cursor:pointer;display:block;
+  }
+  .hdr-gallery img.selected{border-color:var(--accent)}
+  .hdr-link{font-size:.8rem;color:var(--accent);text-decoration:none;font-weight:600}
+  .hdr-link:hover{text-decoration:underline}
+  .hdr-note{font-size:.72rem;color:var(--ink-soft);margin:4px 0 0}
+  .btn-link{
+    background:none;border:none;color:var(--ink-soft);font-size:.78rem;
+    text-decoration:underline;cursor:pointer;padding:6px 0 0;font-family:inherit;
+  }
+  .btn-link:hover{color:var(--ink)}
+
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
   button.primary,button.ghost{
     font-family:'Space Grotesk',sans-serif;
@@ -146,6 +162,15 @@
       <legend>1 · Entête du mail</legend>
       <label for="entete">Titre affiché en bannière</label>
       <input type="text" id="entete" placeholder="Ex. : Rappel — Échéance TVA du 15 juillet" value="">
+
+      <label>Image d'entête (optionnel)</label>
+      <div class="hdr-gallery" id="hdrGallery"></div>
+      <a href="https://unsplash.com/fr/s/photos/bureau-professionnel" target="_blank" rel="noopener" class="hdr-link">Parcourir Unsplash pour d'autres images →</a>
+      <p class="hdr-note">Clic droit sur la photo choisie → Copier l'adresse de l'image, puis collez-la ci-dessous.</p>
+
+      <label for="imgUrl">URL de l'image d'entête</label>
+      <input type="text" id="imgUrl" placeholder="https://images.unsplash.com/photo-...">
+      <button type="button" class="btn-link" id="btnRemoveImg">Retirer l'image</button>
     </fieldset>
 
     <fieldset>
@@ -253,6 +278,44 @@ function currentColors(){
   return PALETTES[selected].colors;
 }
 
+/* ===== Galerie d'images d'entête (Unsplash) ===== */
+const HEADER_IMAGES = [
+  "photo-1497366216548-37526070297c",
+  "photo-1454165804606-c3d57bc86b40",
+  "photo-1450101499163-c8848c66ca85",
+  "photo-1554224155-6726b3ff858f",
+  "photo-1486406146926-c627a92ad1ab",
+  "photo-1507679799987-c73779587ccf"
+];
+const hdrGallery = $("hdrGallery");
+HEADER_IMAGES.forEach(id=>{
+  const fullUrl = `https://images.unsplash.com/${id}?w=1200&h=400&fit=crop&q=80`;
+  const img = document.createElement("img");
+  img.src = `https://images.unsplash.com/${id}?w=400&h=150&fit=crop&q=80`;
+  img.alt = "Image d'entête";
+  img.onclick = ()=>{
+    $("imgUrl").value = fullUrl;
+    selectThumb(img);
+    render();
+  };
+  hdrGallery.appendChild(img);
+});
+
+function selectThumb(el){
+  [...hdrGallery.children].forEach(c=>c.classList.toggle("selected", c===el));
+}
+
+$("imgUrl").addEventListener("input", ()=>{
+  selectThumb(null);
+  render();
+});
+
+$("btnRemoveImg").onclick = ()=>{
+  $("imgUrl").value = "";
+  selectThumb(null);
+  render();
+};
+
 /* ===== Échappement HTML ===== */
 function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -284,6 +347,7 @@ function buildEmail(){
   const corpsRaw = $("corps").value.trim();
   const corps    = textToHtml($("corps").value, main);
   const preheader = esc(corpsRaw.replace(/\s+/g," ").slice(0,90));
+  const imgUrl   = esc($("imgUrl").value.trim());
 
   const dateJour = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
   const kicker = ((cabinet ? cabinet + " — " : "") + dateJour).toUpperCase();
@@ -309,6 +373,12 @@ function buildEmail(){
     <tr>
       <td align="center" style="padding:0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background-color:#ffffff;">
+${imgUrl?`          <!-- Image d'entête -->
+          <tr>
+            <td style="padding:0; line-height:0;">
+              <img src="${imgUrl}" alt="${entete}" width="600" style="display:block; width:100%; max-width:100%; height:auto; border:0;">
+            </td>
+          </tr>`:""}
           <!-- Entête -->
           <tr>
             <td style="background-color:${main}; padding:32px;">
