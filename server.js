@@ -11,7 +11,7 @@ const TONS = {
 - structurer les idées dans un ordre logique : contexte, demande ou information, prochaine étape.`,
 
   "amical et chaleureux, tout en restant professionnel": `Ton chaleureux et personnel. TU DOIS :
-- ouvrir cordialement (ex. "Bonjour [•]," suivi d'une courte phrase d'attention sincère adaptée au sujet du mail) ;
+- ouvrir cordialement par "Bonjour," suivi d'une courte phrase d'attention sincère adaptée au sujet du mail. Si le texte d'origine mentionne le nom du destinataire, le reprendre ; sinon rester générique ("Bonjour,") sans jamais insérer de placeholder ;
 - clore par une formule chaleureuse ("Au plaisir d'échanger,", "Bien à vous," "À très bientôt,") plutôt que protocolaire ;
 - privilégier des tournures positives et directes ("avec plaisir", "n'hésitez surtout pas", "ravi de") ;
 - alléger les formulations administratives ou figées au profit d'un langage naturel, comme on écrirait à quelqu'un qu'on apprécie.`,
@@ -85,6 +85,37 @@ function anonymiserTexte(texte) {
   remplacerTous(/\b\d{14}\b|\b\d{9}\b/g, "ID");
 
   return { texteAnonymise: out, table };
+}
+
+/* ===== Nettoyage global des placeholders hallucinés par le modèle ([•], [Prénom], ...) ===== */
+function nettoyerPlaceholders(texte) {
+  const protections = [];
+  let out = texte;
+
+  // Protéger les boutons [[Libellé|url]] et les jetons d'anonymisation avant tout nettoyage
+  out = out.replace(/\[\[[^\]]*\]\]|\[(?:EMAIL|TEL|MONTANT|IBAN|ID)_\d+\]/g, (match) => {
+    const jeton = ` PROT${protections.length} `;
+    protections.push(match);
+    return jeton;
+  });
+
+  // Supprimer les placeholders courts restants entre crochets simples (ex. [•], [Prénom], [Nom])
+  out = out.replace(/\[[^\]\n]{1,40}\]/g, "");
+
+  // Restaurer les séquences protégées
+  protections.forEach((val, i) => {
+    out = out.replace(` PROT${i} `, val);
+  });
+
+  // Corriger la ponctuation orpheline et les espaces laissés par la suppression
+  out = out
+    .replace(/[ \t]+,/g, ",")
+    .replace(/[ \t]+\./g, ".")
+    .replace(/[ \t]{2,}/g, " ")
+    .split("\n").map(ligne => ligne.replace(/[ \t]+$/, "")).join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+
+  return out;
 }
 
 function restaurerJetons(texte, table) {
@@ -185,7 +216,7 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
       return res.status(r.status).json({ error: msg });
     }
 
-    let texteResultat = data.choices[0].message.content.trim();
+    let texteResultat = nettoyerPlaceholders(data.choices[0].message.content.trim());
     if (tableJetons) {
       const { texteRestaure, jetonsManquants } = restaurerJetons(texteResultat, tableJetons);
       if (jetonsManquants.length > 0) {
