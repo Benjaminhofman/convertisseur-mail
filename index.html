@@ -209,14 +209,29 @@ Cordialement,"></textarea>
       <div class="actions" style="margin-top:8px;">
         <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
         <button type="button" class="ghost" id="btnEmojis">Ajouter des émojis</button>
+        <button type="button" class="ghost" id="btnVerifier">Vérifier le mail</button>
         <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
       </div>
       <p class="error-text" id="erreurIA" style="display:none;"></p>
+      <div id="rapportVerif" style="display:none; position:relative; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:14px; font-size:13px; margin-top:10px; white-space:pre-line;">
+        <button type="button" id="btnFermerVerif" style="position:absolute; top:6px; right:8px; background:none; border:none; font-size:16px; line-height:1; cursor:pointer; color:var(--ink-soft); padding:2px 6px;">×</button>
+        <div id="rapportVerifTexte" style="padding-right:20px;"></div>
+      </div>
       <p class="hint">En utilisant la reformulation, le texte du mail est transmis à OpenAI (États-Unis). Selon la politique de l'API OpenAI, ces données ne servent pas à entraîner les modèles et sont conservées au maximum 30 jours à des fins de sécurité. Évitez d'y inclure des données sensibles, ou activez l'anonymisation ci-dessous.</p>
       <label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:6px;">
         <input type="checkbox" id="anonymiser" style="width:auto; margin:0;">
         Anonymiser les données avant envoi à l'IA (noms, emails, téléphones, montants)
       </label>
+
+      <div class="actions" style="margin-top:10px;">
+        <select id="langueTrad" style="width:auto;">
+          <option value="" selected>Traduire en…</option>
+          <option value="en">Anglais</option>
+          <option value="es">Espagnol</option>
+        </select>
+        <button type="button" class="ghost" id="btnTraduire" disabled>Traduire</button>
+      </div>
+
       <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
 
       <div class="sep-options">
@@ -254,7 +269,8 @@ Cordialement,"></textarea>
     </fieldset>
 
     <div class="actions">
-      <button class="primary" id="btnCopy">Copier le HTML</button>
+      <button class="primary" id="btnCopyRendu">Copier le mail mis en forme</button>
+      <button class="ghost" id="btnCopy">Copier le code HTML</button>
       <button class="ghost" id="btnDownload">Télécharger .html</button>
     </div>
   </section>
@@ -365,6 +381,11 @@ function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+/* ===== Échappement + gestion du **gras** ===== */
+function formatGras(s){
+  return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 /* ===== Éclaircissement d'une couleur hex (mélange avec du blanc) ===== */
 function lighten(hex, amount){
   hex = hex.replace('#','');
@@ -383,7 +404,61 @@ function currentSeparator(){
   return el ? el.value : "none";
 }
 
-function textToHtml(txt, main, accent, sep){
+/* ===== Liste à puces email-safe (une table par item) ===== */
+function renderListe(lignes, accent){
+  const items = lignes.map(ligne=>{
+    const texteItem = ligne.trim().replace(/^- /, "");
+    return `          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
+            <tr>
+              <td width="18" valign="top" style="padding-top:7px;">
+                <div style="width:8px; height:8px; background-color:${accent};"></div>
+              </td>
+              <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333; padding-bottom:6px;">${formatGras(texteItem)}</td>
+            </tr>
+          </table>`;
+  }).join("\n");
+  return `        <div style="margin:14px 0;">\n${items}\n        </div>`;
+}
+
+/* ===== Tableau simple email-safe (syntaxe | col1 | col2 |) ===== */
+function renderTableau(lignes, main, bg){
+  const parseLigne = ligne=>{
+    const cellules = ligne.trim().split("|");
+    return cellules.slice(1, cellules.length-1).map(c=>c.trim());
+  };
+  let rangees = lignes.map(parseLigne);
+
+  // Ignorer une éventuelle ligne de séparation |---|---|
+  if(rangees.length > 1 && rangees[1].every(c=>/^:?-+:?$/.test(c))){
+    rangees.splice(1,1);
+  }
+
+  const entetes = rangees[0];
+  const nbColonnes = entetes.length;
+  const donnees = rangees.slice(1).map(r=>{
+    const row = r.slice(0, nbColonnes);
+    while(row.length < nbColonnes) row.push("");
+    return row;
+  });
+
+  const ligneEntete = `          <tr>${entetes.map(c=>
+    `<td style="background-color:${main}; color:#ffffff; font-weight:bold; font-size:13px; padding:10px 14px;">${formatGras(c)}</td>`
+  ).join("")}</tr>`;
+
+  const lignesDonnees = donnees.map((row,i)=>{
+    const fondAlterne = (i % 2 === 1) ? ` background-color:${bg};` : "";
+    return `          <tr>${row.map(c=>
+      `<td style="font-size:14px; color:#333333; padding:9px 14px; border-top:1px solid #E3E3E3;${fondAlterne}">${formatGras(c)}</td>`
+    ).join("")}</tr>`;
+  }).join("\n");
+
+  return `        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0; border:1px solid #E3E3E3;">
+${ligneEntete}
+${lignesDonnees}
+        </table>`;
+}
+
+function textToHtml(txt, main, accent, bg, sep){
   const blocks = txt.split(/\n{2,}/).filter(b=>b.trim()!=="");
   if(blocks.length===0){
     return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
@@ -415,6 +490,10 @@ function textToHtml(txt, main, accent, sep){
         paraIndex++;
         items.push({type:'para', html: paraHtml(rest, size)});
       }
+    } else if(lines.every(l=>l.trim().startsWith('|') && l.trim().endsWith('|'))){
+      items.push({type:'table', html: renderTableau(lines, main, bg)});
+    } else if(lines.every(l=>l.trim().startsWith('- '))){
+      items.push({type:'list', html: renderListe(lines, accent)});
     } else {
       const size = paraIndex===0 ? 16 : 15;
       paraIndex++;
@@ -450,7 +529,7 @@ function buildEmail(){
   const tel     = esc($("tel").value.trim());
   const mail    = esc($("mail").value.trim());
   const corpsRaw = $("corps").value.trim();
-  const corps    = textToHtml($("corps").value, main, accent, currentSeparator());
+  const corps    = textToHtml($("corps").value, main, accent, bg, currentSeparator());
   const preheader = esc(corpsRaw.replace(/\s+/g," ").slice(0,90));
   const imgUrl   = esc($("imgUrl").value.trim());
 
@@ -545,6 +624,34 @@ function render(){
 }
 
 /* ===== Actions ===== */
+function showToast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+$("btnCopyRendu").onclick = async ()=>{
+  const html = buildEmail();
+  try{
+    const blob = new Blob([html], { type: "text/html" });
+    const texte = new Blob([document.getElementById("corps").value], { type: "text/plain" });
+    await navigator.clipboard.write([
+      new ClipboardItem({ "text/html": blob, "text/plain": texte })
+    ]);
+    showToast("Mail copié — collez-le directement dans Gmail ou Outlook.");
+  }catch(e){
+    try{
+      await navigator.clipboard.writeText(html);
+    }catch(e2){
+      const ta = document.createElement("textarea");
+      ta.value = html; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    showToast("Copie enrichie non supportée par ce navigateur — code HTML copié à la place.");
+  }
+};
+
 $("btnCopy").onclick = async ()=>{
   try{
     await navigator.clipboard.writeText(buildEmail());
@@ -553,9 +660,7 @@ $("btnCopy").onclick = async ()=>{
     ta.value = buildEmail(); document.body.appendChild(ta);
     ta.select(); document.execCommand("copy"); ta.remove();
   }
-  const t = $("toast");
-  t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"), 2200);
+  showToast("HTML copié dans le presse-papiers");
 };
 $("btnDownload").onclick = ()=>{
   const blob = new Blob([buildEmail()], {type:"text/html;charset=utf-8"});
@@ -614,6 +719,95 @@ async function appelEIA(action) {
 
 document.getElementById("btnReformuler").onclick = () => appelEIA("reformuler");
 document.getElementById("btnEmojis").onclick = () => appelEIA("emojis");
+
+/* ===== Vérification (bouton "Vérifier le mail") ===== */
+document.getElementById("btnVerifier").onclick = async () => {
+  const corps = document.getElementById("corps");
+  const btn = document.getElementById("btnVerifier");
+  const erreur = document.getElementById("erreurIA");
+  const rapportDiv = document.getElementById("rapportVerif");
+  const rapportTexte = document.getElementById("rapportVerifTexte");
+  const texte = corps.value.trim();
+
+  erreur.style.display = "none";
+  if (!texte) {
+    erreur.textContent = "Saisissez d'abord le texte du mail.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  btn.disabled = true;
+  const libelle = btn.textContent;
+  btn.textContent = "Vérification en cours…";
+
+  try {
+    const r = await fetch("/api/verifier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texte })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Erreur serveur.");
+    rapportTexte.textContent = data.rapport;
+    rapportDiv.style.display = "block";
+  } catch (e) {
+    erreur.textContent = e.message;
+    erreur.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = libelle;
+  }
+};
+
+document.getElementById("btnFermerVerif").onclick = () => {
+  document.getElementById("rapportVerif").style.display = "none";
+};
+
+/* ===== Traduction EN/ES ===== */
+document.getElementById("langueTrad").addEventListener("change", () => {
+  document.getElementById("btnTraduire").disabled = !document.getElementById("langueTrad").value;
+});
+
+document.getElementById("btnTraduire").onclick = async () => {
+  const corps = document.getElementById("corps");
+  const btn = document.getElementById("btnTraduire");
+  const annuler = document.getElementById("btnAnnulerIA");
+  const erreur = document.getElementById("erreurIA");
+  const langue = document.getElementById("langueTrad").value;
+  if (!langue) return;
+
+  erreur.style.display = "none";
+  const source = (texteOriginal !== null) ? texteOriginal : corps.value;
+  if (!source.trim()) {
+    erreur.textContent = "Saisissez d'abord le texte du mail.";
+    erreur.style.display = "block";
+    return;
+  }
+
+  btn.disabled = true;
+  const libelle = btn.textContent;
+  btn.textContent = "Traduction en cours…";
+
+  try {
+    const r = await fetch("/api/traduire", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texte: source, langue: langue })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Erreur serveur.");
+    if (texteOriginal === null) texteOriginal = corps.value;
+    corps.value = data.texte;
+    annuler.style.display = "inline-block";
+    render();
+  } catch (e) {
+    erreur.textContent = e.message;
+    erreur.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = libelle;
+  }
+};
 
 document.getElementById("btnAnnulerIA").onclick = () => {
   if (texteOriginal !== null) {

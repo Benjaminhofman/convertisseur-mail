@@ -131,14 +131,43 @@ function restaurerJetons(texte, table) {
   return { texteRestaure: out, jetonsManquants };
 }
 
+/* ===== Validation commune du texte reçu ===== */
+function validerRequete(texte) {
+  if (!texte || !String(texte).trim()) return "Texte manquant.";
+  if (String(texte).length > 15000) return "Texte trop long (max 15 000 caractères).";
+  return null;
+}
+
+/* ===== Appel commun à l'API OpenAI (chat completions) ===== */
+async function appelOpenAI(cle, messages, temperature) {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + cle
+    },
+    body: JSON.stringify({ model: "gpt-4o-mini", temperature, messages })
+  });
+
+  const data = await r.json();
+  if (!r.ok) {
+    const msg = r.status === 401 ? "Clé API invalide ou expirée."
+      : r.status === 429 ? "Quota OpenAI dépassé — réessayez dans un instant."
+      : (data.error && data.error.message) || "Erreur OpenAI.";
+    const err = new Error(msg);
+    err.status = r.status;
+    throw err;
+  }
+  return data.choices[0].message.content.trim();
+}
+
 app.post("/api/reformuler", async (req, res) => {
   try {
     const { texte, ton, action, anonymiser, tutoiement } = req.body || {};
     const tutoiementActif = Boolean(tutoiement);
-    if (!texte || !String(texte).trim())
-      return res.status(400).json({ error: "Texte manquant." });
-    if (String(texte).length > 15000)
-      return res.status(400).json({ error: "Texte trop long (max 15 000 caractères)." });
+    const erreurValidation = validerRequete(texte);
+    if (erreurValidation)
+      return res.status(400).json({ error: erreurValidation });
 
     const cle = process.env.OPENAI_API_KEY;
     if (!cle)
@@ -199,31 +228,12 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
       systemPrompt += `\n\nLe texte contient des jetons [EMAIL_n], [TEL_n], [MONTANT_n], [IBAN_n], [ID_n] : conserve-les STRICTEMENT tels quels, sans les modifier ni les déplacer hors de leur phrase.`;
     }
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + cle
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrefix + texteEnvoye }
-        ]
-      })
-    });
+    const contenuBrut = await appelOpenAI(cle, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrefix + texteEnvoye }
+    ], temperature);
 
-    const data = await r.json();
-    if (!r.ok) {
-      const msg = r.status === 401 ? "Clé API invalide ou expirée."
-        : r.status === 429 ? "Quota OpenAI dépassé — réessayez dans un instant."
-        : (data.error && data.error.message) || "Erreur OpenAI.";
-      return res.status(r.status).json({ error: msg });
-    }
-
-    let texteResultat = nettoyerPlaceholders(data.choices[0].message.content.trim());
+    let texteResultat = nettoyerPlaceholders(contenuBrut);
     if (tableJetons) {
       const { texteRestaure, jetonsManquants } = restaurerJetons(texteResultat, tableJetons);
       if (jetonsManquants.length > 0) {
@@ -234,6 +244,76 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
 
     return res.json({ texte: texteResultat });
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return res.status(500).json({ error: "Erreur serveur : " + e.message });
+  }
+});
+
+/* ===== Relecture de contrôle (sans réécriture) ===== */
+app.post("/api/verifier", async (req, res) => {
+  try {
+    const { texte } = req.body || {};
+    const erreurValidation = validerRequete(texte);
+    if (erreurValidation)
+      return res.status(400).json({ error: erreurValidation });
+
+    const cle = process.env.OPENAI_API_KEY;
+    if (!cle)
+      return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
+
+    const systemPrompt =
+`Tu es relecteur d'emails professionnels en français. Analyse le texte SANS le réécrire et signale uniquement les problèmes réels :
+- dates ou délais incohérents entre eux ou avec l'ordre logique ;
+- montants ou chiffres suspects (doublon contradictoire, total incohérent si vérifiable) ;
+- phrases ambiguës (on ne sait pas qui doit faire quoi, ou pour quand) ;
+- informations manquantes (pièce mentionnée mais non listée, demande sans échéance, destinataire d'une action non précisé) ;
+- fautes d'orthographe ou de grammaire significatives.
+Formate ta réponse ainsi : une ligne "✅ Aucun problème détecté" si tout est correct, sinon une ligne par problème commençant par "⚠️ " suivie du constat en une phrase et, entre guillemets, de l'extrait concerné. Maximum 8 points, les plus importants d'abord.
+Ne fais AUCUN compliment ni commentaire général.`;
+
+    const rapport = await appelOpenAI(cle, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Texte à analyser :\n\n" + texte }
+    ], 0.2);
+
+    return res.json({ rapport });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return res.status(500).json({ error: "Erreur serveur : " + e.message });
+  }
+});
+
+/* ===== Traduction EN/ES ===== */
+app.post("/api/traduire", async (req, res) => {
+  try {
+    const { texte, langue } = req.body || {};
+    const erreurValidation = validerRequete(texte);
+    if (erreurValidation)
+      return res.status(400).json({ error: erreurValidation });
+    if (langue !== "en" && langue !== "es")
+      return res.status(400).json({ error: "Langue non supportée." });
+
+    const cle = process.env.OPENAI_API_KEY;
+    if (!cle)
+      return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
+
+    const langueCible = langue === "en" ? "l'anglais" : "l'espagnol";
+    const systemPrompt =
+`Tu traduis des emails professionnels du français vers ${langueCible} (registre professionnel).
+INVARIANTS ABSOLUS :
+- Montants, taux, dates, références et noms propres STRICTEMENT inchangés (les dates peuvent adopter le format usuel de la langue cible mais restent le même jour).
+- Marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**, "- " et "|" de tableaux) conservés à leur place.
+- N'ajoute ni signature ni champ entre crochets.
+Réponds UNIQUEMENT avec la traduction.`;
+
+    const contenuBrut = await appelOpenAI(cle, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: texte }
+    ], 0.2);
+
+    return res.json({ texte: nettoyerPlaceholders(contenuBrut) });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     return res.status(500).json({ error: "Erreur serveur : " + e.message });
   }
 });
