@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convertisseur Mail → HTML</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16232E;
+    --ink-soft:#3E5468;
+    --paper:#F7F9FB;
+    --panel:#FFFFFF;
+    --line:#D8E1E8;
+    --accent:#0E7C66;
+    --accent-dark:#0A5C4C;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Public Sans',system-ui,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  header.app{
+    background:var(--ink);
+    color:#fff;
+    padding:22px 32px;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  }
+  header.app h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.35rem;font-weight:700;letter-spacing:.02em;
+  }
+  header.app p{color:#9FB4C6;font-size:.85rem}
+  main{
+    display:grid;
+    grid-template-columns:minmax(340px,460px) 1fr;
+    gap:24px;
+    padding:24px 32px;
+    max-width:1400px;margin:0 auto;
+  }
+  @media(max-width:900px){main{grid-template-columns:1fr;padding:16px}}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+  }
+  fieldset{border:none;margin-bottom:22px}
+  legend{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;font-size:.8rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent-dark);
+    margin-bottom:10px;
+  }
+  label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-soft);margin:10px 0 4px}
+  input[type=text],input[type=email],textarea{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:9px 11px;
+    font:inherit;font-size:.9rem;
+    background:#fff;color:var(--ink);
+  }
+  input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  textarea{min-height:170px;resize:vertical;line-height:1.5}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  /* Palettes */
+  .palettes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .palette{
+    border:2px solid var(--line);
+    border-radius:8px;
+    padding:8px;
+    cursor:pointer;
+    background:#fff;
+    text-align:left;
+    transition:border-color .15s;
+  }
+  .palette:hover{border-color:var(--ink-soft)}
+  .palette.selected{border-color:var(--accent);box-shadow:0 0 0 2px rgba(14,124,102,.18)}
+  .palette .swatches{display:flex;gap:4px;margin-bottom:6px}
+  .palette .swatches span{flex:1;height:22px;border-radius:4px;border:1px solid rgba(0,0,0,.08)}
+  .palette small{font-size:.72rem;color:var(--ink-soft);font-weight:600}
+  .custom-colors{display:none;margin-top:12px;gap:12px}
+  .custom-colors.visible{display:flex;flex-wrap:wrap}
+  .custom-colors div{display:flex;flex-direction:column;gap:4px}
+  .custom-colors input[type=color]{width:64px;height:36px;border:1px solid var(--line);border-radius:6px;padding:2px;background:#fff;cursor:pointer}
+  .custom-colors span{font-size:.72rem;font-weight:600;color:var(--ink-soft)}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  button.primary,button.ghost{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;font-size:.88rem;
+    border-radius:7px;padding:11px 18px;cursor:pointer;
+    transition:background .15s;
+  }
+  button.primary{background:var(--accent);color:#fff;border:none}
+  button.primary:hover{background:var(--accent-dark)}
+  button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  button.ghost:hover{border-color:var(--ink-soft)}
+
+  /* Preview panel */
+  .preview-wrap{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .mailframe{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:480px;
+  }
+  .mailframe .bar{
+    background:#EDF2F6;border-bottom:1px solid var(--line);
+    padding:9px 14px;display:flex;gap:7px;align-items:center;
+  }
+  .mailframe .bar i{width:11px;height:11px;border-radius:50%;background:#C7D3DD;display:inline-block}
+  .mailframe .bar span{font-size:.75rem;color:var(--ink-soft);margin-left:8px;font-weight:600}
+  iframe{border:none;width:100%;flex:1;background:#fff}
+  .code-card{position:relative}
+  .code-card pre{
+    max-height:260px;overflow:auto;
+    background:#101B24;color:#C9E3D8;
+    border-radius:8px;padding:14px;
+    font-size:.74rem;line-height:1.5;
+    white-space:pre-wrap;word-break:break-all;
+  }
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--ink);color:#fff;padding:11px 22px;border-radius:8px;
+    font-size:.85rem;font-weight:600;opacity:0;transition:all .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>Convertisseur Mail → HTML</h1>
+  <p>Transformez le texte de votre mail en HTML compatible Outlook, Gmail et Apple Mail.</p>
+</header>
+
+<main>
+  <!-- ===== Formulaire ===== -->
+  <section class="card">
+    <fieldset>
+      <legend>1 · Entête du mail</legend>
+      <label for="entete">Titre affiché en bannière</label>
+      <input type="text" id="entete" placeholder="Ex. : Rappel — Échéance TVA du 15 juillet" value="">
+    </fieldset>
+
+    <fieldset>
+      <legend>2 · Texte du mail</legend>
+      <label for="corps">Collez votre texte (les paragraphes sont conservés)</label>
+      <textarea id="corps" placeholder="Bonjour,
+
+Nous vous rappelons que...
+
+Cordialement,"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>3 · Couleurs (palette de 3 couleurs)</legend>
+      <div class="palettes" id="palettes"></div>
+      <div class="custom-colors" id="customColors">
+        <div><span>Principale</span><input type="color" id="c1" value="#1E3A5F"></div>
+        <div><span>Accent</span><input type="color" id="c2" value="#4A90D9"></div>
+        <div><span>Fond</span><input type="color" id="c3" value="#F0F5FA"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4 · Signature</legend>
+      <div class="grid2">
+        <div><label for="prenom">Prénom</label><input type="text" id="prenom" placeholder="Marie"></div>
+        <div><label for="nom">Nom</label><input type="text" id="nom" placeholder="Dupont"></div>
+      </div>
+      <div class="grid2">
+        <div><label for="fonction">Fonction (optionnel)</label><input type="text" id="fonction" placeholder="Expert-comptable"></div>
+        <div><label for="cabinet">Cabinet / Société (optionnel)</label><input type="text" id="cabinet" placeholder="Cabinet Dupont & Associés"></div>
+      </div>
+      <div class="grid2">
+        <div><label for="tel">Téléphone (optionnel)</label><input type="text" id="tel" placeholder="01 23 45 67 89"></div>
+        <div><label for="mail">Email (optionnel)</label><input type="email" id="mail" placeholder="m.dupont@cabinet.fr"></div>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button class="primary" id="btnCopy">Copier le HTML</button>
+      <button class="ghost" id="btnDownload">Télécharger .html</button>
+    </div>
+  </section>
+
+  <!-- ===== Aperçu ===== -->
+  <div class="preview-wrap">
+    <div class="mailframe">
+      <div class="bar"><i></i><i></i><i></i><span>Aperçu du mail</span></div>
+      <iframe id="preview" title="Aperçu du mail généré"></iframe>
+    </div>
+    <div class="card code-card">
+      <legend style="font-family:'Space Grotesk';font-weight:700;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-dark);margin-bottom:10px;display:block">Code HTML généré</legend>
+      <pre id="code"></pre>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast">HTML copié dans le presse-papiers</div>
+
+<script>
+/* ===== Palettes prédéfinies : [principale, accent, fond] ===== */
+const PALETTES = [
+  { name:"Ardoise",    colors:["#1E3A5F","#4A90D9","#F0F5FA"] },
+  { name:"Émeraude",   colors:["#0E5C46","#2FA37E","#EFF7F3"] },
+  { name:"Bordeaux",   colors:["#6B1F2A","#B4535F","#FAF2F3"] },
+  { name:"Anthracite", colors:["#2B2B2E","#C8A24B","#F6F4EF"] },
+  { name:"Océan",      colors:["#0F4C5C","#3AA6B9","#EEF7F9"] },
+  { name:"Prune",      colors:["#4A2C5A","#8E6BA8","#F5F1F8"] }
+];
+let selected = 0;            // index de la palette, -1 = personnalisée
+const $ = id => document.getElementById(id);
+
+/* ===== Rendu des palettes ===== */
+const cont = $("palettes");
+PALETTES.forEach((p,i)=>{
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "palette" + (i===0 ? " selected":"");
+  b.innerHTML = `<div class="swatches">${p.colors.map(c=>`<span style="background:${c}"></span>`).join("")}</div><small>${p.name}</small>`;
+  b.onclick = ()=>{ selected=i; refreshPaletteUI(); render(); };
+  cont.appendChild(b);
+});
+const custom = document.createElement("button");
+custom.type="button";
+custom.className="palette";
+custom.innerHTML = `<div class="swatches"><span style="background:linear-gradient(90deg,#e33,#3a3,#36c)"></span></div><small>Personnalisée</small>`;
+custom.onclick = ()=>{ selected=-1; refreshPaletteUI(); render(); };
+cont.appendChild(custom);
+
+function refreshPaletteUI(){
+  [...cont.children].forEach((el,i)=>{
+    el.classList.toggle("selected", (selected===-1 && i===PALETTES.length) || i===selected);
+  });
+  $("customColors").classList.toggle("visible", selected===-1);
+}
+
+function currentColors(){
+  if(selected===-1) return [$("c1").value, $("c2").value, $("c3").value];
+  return PALETTES[selected].colors;
+}
+
+/* ===== Échappement HTML ===== */
+function esc(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+/* ===== Texte → paragraphes HTML ===== */
+function textToHtml(txt, colorMain){
+  return txt.split(/\n{2,}/).filter(p=>p.trim()!=="").map(p=>{
+    const lines = esc(p.trim()).replace(/\n/g,"<br>");
+    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">${lines}</p>`;
+  }).join("\n") || `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
+}
+
+/* ===== Génération du mail HTML (tableaux + styles inline) ===== */
+function buildEmail(){
+  const [main, accent, bg] = currentColors();
+  const entete  = esc($("entete").value.trim()) || "Entête du mail";
+  const prenom  = esc($("prenom").value.trim());
+  const nom     = esc($("nom").value.trim());
+  const fonction= esc($("fonction").value.trim());
+  const cabinet = esc($("cabinet").value.trim());
+  const tel     = esc($("tel").value.trim());
+  const mail    = esc($("mail").value.trim());
+  const corps   = textToHtml($("corps").value, main);
+
+  const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prénom Nom";
+  const sigLines = [];
+  if(fonction) sigLines.push(fonction);
+  if(cabinet)  sigLines.push(cabinet);
+  const contact = [];
+  if(tel)  contact.push(`Tél. ${tel}`);
+  if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${mail}</a>`);
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${entete}</title>
+</head>
+<body style="margin:0; padding:0; background-color:${bg};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden;">
+          <!-- Entête -->
+          <tr>
+            <td style="background-color:${main}; padding:28px 32px;">
+              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:21px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
+              <div style="height:3px; width:56px; background-color:${accent}; margin-top:12px;"></div>
+            </td>
+          </tr>
+          <!-- Corps -->
+          <tr>
+            <td style="padding:30px 32px 10px 32px;">
+${corps}
+            </td>
+          </tr>
+          <!-- Signature -->
+          <tr>
+            <td style="padding:10px 32px 30px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
+                <tr>
+                  <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
+                    <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${fullName}</p>
+${sigLines.map(l=>`                    <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${l}</p>`).join("\n")}
+${contact.length?`                    <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Pied -->
+          <tr>
+            <td style="background-color:${bg}; padding:14px 32px; border-top:1px solid #e6e6e6;">
+              <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#8a8a8a;">Ce message et ses pièces jointes sont confidentiels et destinés exclusivement à leur destinataire.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/* ===== Rendu live ===== */
+function render(){
+  const html = buildEmail();
+  $("preview").srcdoc = html;
+  $("code").textContent = html;
+}
+
+/* ===== Actions ===== */
+$("btnCopy").onclick = async ()=>{
+  try{
+    await navigator.clipboard.writeText(buildEmail());
+  }catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = buildEmail(); document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  const t = $("toast");
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+};
+$("btnDownload").onclick = ()=>{
+  const blob = new Blob([buildEmail()], {type:"text/html;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "mail.html";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+/* ===== Écouteurs ===== */
+["entete","corps","prenom","nom","fonction","cabinet","tel","mail","c1","c2","c3"]
+  .forEach(id => $(id).addEventListener("input", render));
+
+render();
+</script>
+</body>
+</html>
