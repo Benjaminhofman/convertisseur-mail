@@ -321,6 +321,18 @@ function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+/* ===== Éclaircissement d'une couleur hex (mélange avec du blanc) ===== */
+function lighten(hex, amount){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const r = parseInt(hex.slice(0,2),16);
+  const g = parseInt(hex.slice(2,4),16);
+  const b = parseInt(hex.slice(4,6),16);
+  const mix = c => Math.round(c + (255-c)*amount);
+  const toHex = c => c.toString(16).padStart(2,'0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
 /* ===== Texte → paragraphes HTML ===== */
 function textToHtml(txt, colorMain){
   const paras = txt.split(/\n{2,}/).filter(p=>p.trim()!=="");
@@ -350,7 +362,8 @@ function buildEmail(){
   const imgUrl   = esc($("imgUrl").value.trim());
 
   const dateJour = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
-  const kicker = ((cabinet ? cabinet + " — " : "") + dateJour).toUpperCase();
+  const surtitre = ((cabinet ? cabinet + " · " : "") + dateJour).toUpperCase();
+  const accentClair = lighten(accent, 0.45);
 
   const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prénom Nom";
   const hasName  = Boolean(prenom || nom);
@@ -379,12 +392,16 @@ ${imgUrl?`          <!-- Image d'entête -->
               <img src="${imgUrl}" alt="${entete}" width="600" style="display:block; width:100%; max-width:100%; height:auto; border:0;">
             </td>
           </tr>`:""}
-          <!-- Entête -->
+          <!-- Liseré accent -->
           <tr>
-            <td style="background-color:${main}; padding:32px;">
-              <p style="margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:1.5px; color:${accent}; font-weight:bold;">${kicker}</p>
-              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:24px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
-              <div style="height:3px; width:64px; background-color:${accent}; margin-top:12px;"></div>
+            <td style="padding:0; line-height:0; font-size:0; height:4px; background-color:${accent};">&nbsp;</td>
+          </tr>
+          <!-- Bannière -->
+          <tr>
+            <td style="background-color:${main}; padding:38px 36px 34px 36px;">
+              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${surtitre}</p>
+              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
+              <div style="height:3px; width:64px; background-color:${accent}; margin-top:18px;"></div>
             </td>
           </tr>
           <!-- Corps + Signature (largeur de lecture limitée) -->
