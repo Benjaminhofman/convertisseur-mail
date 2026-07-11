@@ -57,7 +57,7 @@
     margin-bottom:10px;
   }
   label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-soft);margin:10px 0 4px}
-  input[type=text],input[type=email],textarea{
+  input[type=text],input[type=email],textarea,select{
     width:100%;
     border:1px solid var(--line);
     border-radius:6px;
@@ -65,8 +65,9 @@
     font:inherit;font-size:.9rem;
     background:#fff;color:var(--ink);
   }
-  input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   textarea{min-height:170px;resize:vertical;line-height:1.5}
+  .error-text{color:#B3261E;font-size:.82rem;margin-top:6px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
   /* Palettes */
@@ -189,9 +190,20 @@
 Nous vous rappelons que...
 
 Cordialement,"></textarea>
+
+      <label for="tonStyle">Style</label>
+      <select id="tonStyle">
+        <option value="Professionnel et courtois" selected>Professionnel et courtois</option>
+        <option value="Plus concis">Plus concis</option>
+        <option value="Plus pédagogue">Plus pédagogue</option>
+        <option value="Plus commercial">Plus commercial</option>
+      </select>
+
       <div class="actions" style="margin-top:8px;">
-        <button type="button" class="ghost" id="btnReformuler">Reformuler avec l'IA</button>
+        <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
+        <button type="button" class="ghost" id="btnAnnulerReformulation" style="display:none;">Annuler la reformulation</button>
       </div>
+      <p class="error-text" id="reformulerError" style="display:none;"></p>
       <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
 
       <div class="sep-options">
@@ -541,33 +553,45 @@ $("btnDownload").onclick = ()=>{
   URL.revokeObjectURL(a.href);
 };
 
+let corpsAvantReformulation = null;
+
 $("btnReformuler").onclick = async ()=>{
   const texte = $("corps").value.trim();
   if(!texte) return;
   const btn = $("btnReformuler");
+  const errEl = $("reformulerError");
   const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "Reformulation…";
-  const t = $("toast");
+  btn.textContent = "Reformulation en cours…";
+  errEl.style.display = "none";
+  errEl.textContent = "";
   try{
     const res = await fetch("/api/reformuler", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ texte })
+      body: JSON.stringify({ texte, ton: $("tonStyle").value })
     });
     const data = await res.json();
-    if(!res.ok) throw new Error(data.erreur || "Erreur");
+    if(!res.ok) throw new Error(data.error || "Erreur lors de la reformulation.");
+    corpsAvantReformulation = texte;
     $("corps").value = data.texte;
+    $("btnAnnulerReformulation").style.display = "";
     render();
-    t.textContent = "Texte reformulé";
   }catch(e){
-    t.textContent = "Échec de la reformulation";
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
   }finally{
     btn.disabled = false;
     btn.textContent = label;
-    t.classList.add("show");
-    setTimeout(()=>{ t.classList.remove("show"); t.textContent = "HTML copié dans le presse-papiers"; }, 2200);
   }
+};
+
+$("btnAnnulerReformulation").onclick = ()=>{
+  if(corpsAvantReformulation===null) return;
+  $("corps").value = corpsAvantReformulation;
+  corpsAvantReformulation = null;
+  $("btnAnnulerReformulation").style.display = "none";
+  render();
 };
 
 /* ===== Écouteurs ===== */
