@@ -8,7 +8,7 @@ app.use(express.static('.'));
 
 app.post('/api/reformuler', async (req, res) => {
   const texte = (req.body?.texte || '').trim();
-  const ton = (req.body?.ton || '').trim() || 'Professionnel et courtois';
+  const ton = (req.body?.ton || '').trim() || 'professionnel et courtois';
 
   if (!texte || texte.length > 15000) {
     return res.status(400).json({ error: 'Texte manquant ou trop long.' });
@@ -35,8 +35,9 @@ app.post('/api/reformuler', async (req, res) => {
             content:
               "Tu reformules des emails professionnels rédigés par un expert-comptable français. Améliore la clarté, la structure et " +
               "l'orthographe en conservant STRICTEMENT le sens, les montants, les dates et les délais. Conserve tels quels les marqueurs " +
-              "de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**. Adapte le ton selon la consigne. Réponds " +
-              "UNIQUEMENT avec le texte reformulé, sans préambule ni commentaire."
+              "de mise en forme en début de ligne (##, ###, >, !!, [[...]]) et les **gras**. Adapte le ton selon la consigne. " +
+              "Quel que soit le ton demandé, conserve les formules de politesse d'usage dans la correspondance professionnelle " +
+              "française et ne rends jamais le propos familier. Réponds UNIQUEMENT avec le texte reformulé, sans préambule ni commentaire."
           },
           {
             role: 'user',
