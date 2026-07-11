@@ -172,6 +172,13 @@
       <label for="entete">Titre affiché en bannière</label>
       <input type="text" id="entete" placeholder="Ex. : Rappel — Échéance TVA du 15 juillet" value="">
 
+      <div class="sep-options">
+        <span class="sep-label">Style d'entête</span>
+        <label><input type="radio" name="styleEntete" value="sobre" checked> Sobre</label>
+        <label><input type="radio" name="styleEntete" value="bandeau"> Bandeau</label>
+        <label><input type="radio" name="styleEntete" value="minimal"> Minimal</label>
+      </div>
+
       <label>Image d'entête (optionnel)</label>
       <div class="hdr-gallery" id="hdrGallery"></div>
       <a href="https://unsplash.com/fr/s/photos/bureau-professionnel" target="_blank" rel="noopener" class="hdr-link">Parcourir Unsplash pour d'autres images →</a>
@@ -407,6 +414,11 @@ function currentSeparator(){
   return el ? el.value : "none";
 }
 
+function currentStyleEntete(){
+  const el = document.querySelector('input[name="styleEntete"]:checked');
+  return el ? el.value : "sobre";
+}
+
 /* ===== Liste à puces email-safe (une table par item) ===== */
 function renderListe(lignes, accent){
   const items = lignes.map(ligne=>{
@@ -540,6 +552,7 @@ function construireMail(){
   const dateJour = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
   const surtitre = ((cabinet ? cabinet + " · " : "") + dateJour).toUpperCase();
   const accentClair = lighten(accent, 0.45);
+  const styleEntete = currentStyleEntete();
 
   const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prénom Nom";
   const hasName  = Boolean(prenom || nom);
@@ -548,6 +561,31 @@ function construireMail(){
   const contact = [];
   if(tel)  contact.push(`Tél. ${tel}`);
   if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${mail}</a>`);
+
+  const blocBandeau = styleEntete==='bandeau' ? `          <!-- Liseré accent -->
+          <tr>
+            <td style="padding:0; line-height:0; font-size:0; height:4px; background-color:${accent};">&nbsp;</td>
+          </tr>
+          <!-- Bannière -->
+          <tr>
+            <td style="background-color:${main}; padding:38px 36px 34px 36px;">
+              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${surtitre}</p>
+              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
+              <div style="height:3px; width:64px; background-color:${accent}; margin-top:18px;"></div>
+            </td>
+          </tr>` : "";
+
+  const blocSobre = styleEntete==='sobre' ? `                <tr>
+                  <td style="padding:32px 0 0 0;">
+                    <h1 style="margin:8px 0 4px 0; font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:${main};">${entete}</h1>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
+                      <tr><td width="40" height="2" style="background-color:${accent}; font-size:0; line-height:0;">&nbsp;</td></tr>
+                    </table>
+                    <div style="height:18px; line-height:18px; font-size:0;">&nbsp;</div>
+                  </td>
+                </tr>` : "";
+
+  const paddingCorpsHaut = styleEntete==='sobre' ? "0" : "30px";
 
   const fragment = `  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
     <tr>
@@ -559,24 +597,14 @@ ${imgUrl?`          <!-- Image d'entête -->
               <img src="${imgUrl}" alt="${entete}" width="600" style="display:block; width:100%; max-width:100%; height:auto; border:0;">
             </td>
           </tr>`:""}
-          <!-- Liseré accent -->
-          <tr>
-            <td style="padding:0; line-height:0; font-size:0; height:4px; background-color:${accent};">&nbsp;</td>
-          </tr>
-          <!-- Bannière -->
-          <tr>
-            <td style="background-color:${main}; padding:38px 36px 34px 36px;">
-              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${surtitre}</p>
-              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
-              <div style="height:3px; width:64px; background-color:${accent}; margin-top:18px;"></div>
-            </td>
-          </tr>
+${blocBandeau}
           <!-- Corps + Signature (largeur de lecture limitée) -->
           <tr>
             <td style="padding:0 32px;">
               <table role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; width:100%;">
+${blocSobre}
                 <tr>
-                  <td style="padding:30px 0 10px 0;">
+                  <td style="padding:${paddingCorpsHaut} 0 10px 0;">
 ${corps}
                   </td>
                 </tr>
@@ -891,6 +919,8 @@ document.getElementById("corps").addEventListener("input", () => {
 ["entete","corps","prenom","nom","fonction","cabinet","tel","mail","c1","c2","c3"]
   .forEach(id => $(id).addEventListener("input", render));
 document.querySelectorAll('input[name="separateur"]')
+  .forEach(r => r.addEventListener("change", render));
+document.querySelectorAll('input[name="styleEntete"]')
   .forEach(r => r.addEventListener("change", render));
 
 render();
