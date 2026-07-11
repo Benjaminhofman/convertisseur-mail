@@ -107,6 +107,13 @@
   }
   .btn-link:hover{color:var(--ink)}
 
+  /* Séparateurs entre paragraphes */
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:6px}
+  .sep-options{margin-top:10px}
+  .sep-options .sep-label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-soft);margin:10px 0 6px}
+  .sep-options label{display:inline-flex;align-items:center;gap:4px;font-size:.85rem;font-weight:400;color:var(--ink);margin:0 14px 6px 0}
+  .sep-options input[type=radio]{width:auto;margin:0}
+
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
   button.primary,button.ghost{
     font-family:'Space Grotesk',sans-serif;
@@ -181,6 +188,14 @@
 Nous vous rappelons que...
 
 Cordialement,"></textarea>
+      <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
+
+      <div class="sep-options">
+        <span class="sep-label">Séparateur entre paragraphes</span>
+        <label><input type="radio" name="separateur" value="none" checked> Aucun</label>
+        <label><input type="radio" name="separateur" value="line"> Filet fin</label>
+        <label><input type="radio" name="separateur" value="dash"> Tiret accent</label>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -333,17 +348,66 @@ function lighten(hex, amount){
   return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
 }
 
-/* ===== Texte → paragraphes HTML ===== */
-function textToHtml(txt, colorMain){
-  const paras = txt.split(/\n{2,}/).filter(p=>p.trim()!=="");
-  if(paras.length===0){
+/* ===== Texte → paragraphes / intertitres HTML ===== */
+function currentSeparator(){
+  const el = document.querySelector('input[name="separateur"]:checked');
+  return el ? el.value : "none";
+}
+
+function textToHtml(txt, main, accent, sep){
+  const blocks = txt.split(/\n{2,}/).filter(b=>b.trim()!=="");
+  if(blocks.length===0){
     return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
   }
-  return paras.map((p,i)=>{
-    const lines = esc(p.trim()).replace(/\n/g,"<br>");
-    const size = i===0 ? 16 : 15;
-    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${lines}</p>`;
-  }).join("\n");
+
+  const paraHtml = (text, size) =>
+    `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${esc(text).replace(/\n/g,"<br>")}</p>`;
+
+  const items = [];
+  let paraIndex = 0;
+  let headingIndex = 0;
+  blocks.forEach(block=>{
+    const lines = block.split('\n');
+    const firstLine = lines[0].trim();
+    if(firstLine.startsWith('## ')){
+      const headingText = esc(firstLine.slice(3).trim());
+      const marginTop = headingIndex===0 ? 8 : 26;
+      headingIndex++;
+      items.push({type:'heading', html:
+`        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${marginTop}px 0 12px 0;">
+          <tr>
+            <td style="width:10px; height:10px; background-color:${accent}; font-size:0; line-height:0;">&nbsp;</td>
+            <td style="padding-left:10px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${headingText}</td>
+          </tr>
+        </table>`});
+      const rest = lines.slice(1).join('\n').trim();
+      if(rest){
+        const size = paraIndex===0 ? 16 : 15;
+        paraIndex++;
+        items.push({type:'para', html: paraHtml(rest, size)});
+      }
+    } else {
+      const size = paraIndex===0 ? 16 : 15;
+      paraIndex++;
+      items.push({type:'para', html: paraHtml(block.trim(), size)});
+    }
+  });
+
+  const sepHtml = sep==='line'
+    ? `        <div style="border-top:1px solid #E3E3E3; margin:18px 0;"></div>`
+    : sep==='dash'
+      ? `        <div style="width:36px; border-top:2px solid ${accent}; margin:18px auto;"></div>`
+      : null;
+
+  const out = [];
+  items.forEach((item,i)=>{
+    out.push(item.html);
+    const next = items[i+1];
+    if(sepHtml && next && item.type==='para' && next.type==='para'){
+      out.push(sepHtml);
+    }
+  });
+  return out.join("\n");
 }
 
 /* ===== Génération du mail HTML (tableaux + styles inline) ===== */
@@ -357,7 +421,7 @@ function buildEmail(){
   const tel     = esc($("tel").value.trim());
   const mail    = esc($("mail").value.trim());
   const corpsRaw = $("corps").value.trim();
-  const corps    = textToHtml($("corps").value, main);
+  const corps    = textToHtml($("corps").value, main, accent, currentSeparator());
   const preheader = esc(corpsRaw.replace(/\s+/g," ").slice(0,90));
   const imgUrl   = esc($("imgUrl").value.trim());
 
@@ -476,6 +540,8 @@ $("btnDownload").onclick = ()=>{
 /* ===== Écouteurs ===== */
 ["entete","corps","prenom","nom","fonction","cabinet","tel","mail","c1","c2","c3"]
   .forEach(id => $(id).addEventListener("input", render));
+document.querySelectorAll('input[name="separateur"]')
+  .forEach(r => r.addEventListener("change", render));
 
 render();
 </script>
