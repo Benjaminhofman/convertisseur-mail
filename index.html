@@ -247,6 +247,12 @@ Cordialement,"></textarea>
         <label><input type="radio" name="separateur" value="line"> Filet fin</label>
         <label><input type="radio" name="separateur" value="dash"> Tiret accent</label>
       </div>
+
+      <div class="sep-options">
+        <span class="sep-label">Style de puce</span>
+        <label><input type="radio" name="stylePuce" value="carre" checked> Carré (couleur de la palette)</label>
+        <label><input type="radio" name="stylePuce" value="emoji"> Émoji 🔹 (couleur garantie partout)</label>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -427,20 +433,26 @@ function currentStyleEntete(){
   return el ? el.value : "sobre";
 }
 
-/* ===== Liste à puces email-safe (une table par item) ===== */
-function renderListe(lignes, main, accent){
-  const items = lignes.map(ligne=>{
+function currentStylePuce(){
+  const el = document.querySelector('input[name="stylePuce"]:checked');
+  return el ? el.value : "carre";
+}
+
+/* ===== Puce ■ (carré coloré, double couche) ou 🔹 (émoji, couleur indestructible au collage) ===== */
+function rendrePuce(stylePuce, accent){
+  return stylePuce === 'emoji' ? '🔹' : doubleCouche('■', accent);
+}
+
+/* ===== Liste à puces email-safe : paragraphe inline avec retrait suspendu
+   (puce + texte restent sur la même ligne même si la messagerie aplatit les tableaux) ===== */
+function renderListe(lignes, main, accent, stylePuce){
+  const puce = rendrePuce(stylePuce, accent);
+  return lignes.map((ligne, i)=>{
     const texteItem = ligne.trim().replace(/^[-–—]\s*/, "");
-    return `          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
-            <tr>
-              <td width="18" valign="top" style="padding-top:3px;">
-                ${doubleCouche('■', accent, 'font-family:Arial,Helvetica,sans-serif; font-size:12px;')}
-              </td>
-              <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333; padding-bottom:6px;">${formatGras(texteItem, main)}</td>
-            </tr>
-          </table>`;
+    const margeHaut = i===0 ? 10 : 0;
+    const margeBas = i===lignes.length-1 ? 14 : 8;
+    return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 0; padding-left:18px; text-indent:-18px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
   }).join("\n");
-  return `        <div style="margin:14px 0;">\n${items}\n        </div>`;
 }
 
 /* ===== Ligne d'annonce (titre de paragraphe court finissant par ":") ===== */
@@ -487,7 +499,7 @@ ${lignesDonnees}
         </table>`;
 }
 
-function textToHtml(txt, main, accent, bg, sep){
+function textToHtml(txt, main, accent, bg, sep, stylePuce){
   const blocks = txt.split(/\n{2,}/).filter(b=>b.trim()!=="");
   if(blocks.length===0){
     return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
@@ -507,12 +519,7 @@ function textToHtml(txt, main, accent, bg, sep){
       const marginTop = headingIndex===0 ? 8 : 26;
       headingIndex++;
       items.push({type:'heading', html:
-`        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${marginTop}px 0 12px 0;">
-          <tr>
-            <td valign="middle">${doubleCouche('■', accent, 'font-family:Arial,Helvetica,sans-serif; font-size:14px;')}</td>
-            <td style="padding-left:10px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${doubleCouche(headingText, main)}</td>
-          </tr>
-        </table>`});
+`        <p style="margin:${marginTop}px 0 12px 0; padding-left:22px; text-indent:-22px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${rendrePuce(stylePuce, accent)}&nbsp;&nbsp;${doubleCouche(headingText, main)}</p>`});
       const rest = lines.slice(1).join('\n').trim();
       if(rest){
         const size = paraIndex===0 ? 16 : 15;
@@ -546,7 +553,7 @@ function textToHtml(txt, main, accent, bg, sep){
       });
       segments.forEach((seg,i)=>{
         if(seg.type==='list'){
-          items.push({type:'list', html: renderListe(seg.lignes, main, accent)});
+          items.push({type:'list', html: renderListe(seg.lignes, main, accent, stylePuce)});
         } else if(seg.type==='annonce'){
           const suivant = segments[i+1];
           const margeBasse = (suivant && suivant.type==='list') ? 4 : 8;
@@ -592,7 +599,7 @@ function construireMail(){
   const tel     = esc($("tel").value.trim());
   const mail    = esc($("mail").value.trim());
   const corpsRaw = $("corps").value.trim();
-  const corps    = textToHtml($("corps").value, main, accent, bg, currentSeparator());
+  const corps    = textToHtml($("corps").value, main, accent, bg, currentSeparator(), currentStylePuce());
   const preheader = esc(corpsRaw.replace(/\*\*/g,"").replace(/\s+/g," ").slice(0,90));
   const imgUrl   = esc($("imgUrl").value.trim());
 
@@ -966,6 +973,8 @@ document.getElementById("corps").addEventListener("input", () => {
 document.querySelectorAll('input[name="separateur"]')
   .forEach(r => r.addEventListener("change", render));
 document.querySelectorAll('input[name="styleEntete"]')
+  .forEach(r => r.addEventListener("change", render));
+document.querySelectorAll('input[name="stylePuce"]')
   .forEach(r => r.addEventListener("change", render));
 
 render();
