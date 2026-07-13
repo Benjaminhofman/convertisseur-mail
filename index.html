@@ -443,6 +443,12 @@ function renderListe(lignes, main, accent){
   return `        <div style="margin:14px 0;">\n${items}\n        </div>`;
 }
 
+/* ===== Ligne d'annonce (titre de paragraphe court finissant par ":") ===== */
+function renderAnnonce(texte, main, margeBasse){
+  const contenu = formatGras(texte, main);
+  return `        <p style="margin:20px 0 ${margeBasse}px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.5;">${doubleCouche(`<strong>${contenu}</strong>`, main, 'font-weight:bold;')}</p>`;
+}
+
 /* ===== Tableau simple email-safe (syntaxe | col1 | col2 |) ===== */
 function renderTableau(lignes, main, bg){
   const parseLigne = ligne=>{
@@ -518,22 +524,33 @@ function textToHtml(txt, main, accent, bg, sep){
     } else {
       // Traitement ligne par ligne : une ligne commençant par un tiret en
       // début de ligne ("- ", "– ", "— ", ou collé "-texte") est un item de
-      // liste ; un tiret au milieu d'une ligne (incise) ne compte pas.
+      // liste ; un tiret au milieu d'une ligne (incise) ne compte pas. Une
+      // ligne courte finissant par ":" en début de bloc (ou après une ligne
+      // vide) est une ligne d'annonce, mise en valeur à part.
       const segments = [];
       let courant = null;
-      lines.forEach(ligne=>{
-        const estPuce = /^[-–—]/.test(ligne.trim());
-        const type = estPuce ? 'list' : 'para';
-        if(courant && courant.type===type){
+      lines.forEach((ligne, idx)=>{
+        const trim = ligne.trim();
+        const estPuce = /^[-–—]/.test(trim);
+        const debutDeGroupe = idx===0 || lines[idx-1].trim()==="";
+        const estMarqueur = /^(#|>|!!|\[\[|\|)/.test(trim);
+        const estAnnonce = !estPuce && !estMarqueur && debutDeGroupe
+          && trim.length>0 && trim.length<90 && trim.endsWith(':');
+        const type = estPuce ? 'list' : (estAnnonce ? 'annonce' : 'para');
+        if(courant && courant.type===type && type!=='annonce'){
           courant.lignes.push(ligne);
         } else {
           courant = {type, lignes:[ligne]};
           segments.push(courant);
         }
       });
-      segments.forEach(seg=>{
+      segments.forEach((seg,i)=>{
         if(seg.type==='list'){
           items.push({type:'list', html: renderListe(seg.lignes, main, accent)});
+        } else if(seg.type==='annonce'){
+          const suivant = segments[i+1];
+          const margeBasse = (suivant && suivant.type==='list') ? 4 : 8;
+          items.push({type:'annonce', html: renderAnnonce(seg.lignes[0].trim(), main, margeBasse)});
         } else {
           const texte = seg.lignes.join('\n').trim();
           if(texte){

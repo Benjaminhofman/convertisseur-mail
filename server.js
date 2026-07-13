@@ -250,6 +250,7 @@ INVARIANTS ABSOLUS (priorité maximale) :
 - Les montants, taux, dates, délais, références légales et noms propres sont conservés STRICTEMENT à l'identique.
 - Le sens de chaque information est conservé : ne reformule jamais une phrase au point d'en changer la portée (qui fait quoi, qui doit transmettre quoi à qui).
 - Les marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**) sont conservés tels quels.
+- Une ligne courte se terminant par ':' (annonce d'une liste ou d'une section) reste une ligne se terminant par ':', conservée à sa place.
 ${consigneRegistre}
 - N'invente aucune information : si une formule d'ouverture chaleureuse ou une référence serait naturelle mais que le texte ne fournit pas l'information (prénom du destinataire, contexte), reste générique plutôt que d'inventer.
 ${INVARIANT_ANTI_INJECTION}
