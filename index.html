@@ -423,7 +423,7 @@ function currentStyleEntete(){
 /* ===== Liste à puces email-safe (une table par item) ===== */
 function renderListe(lignes, main, accent){
   const items = lignes.map(ligne=>{
-    const texteItem = ligne.trim().replace(/^- /, "");
+    const texteItem = ligne.trim().replace(/^[-–—]\s*/, "");
     return `          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
             <tr>
               <td width="18" valign="top" style="padding-top:3px;">
@@ -508,12 +508,34 @@ function textToHtml(txt, main, accent, bg, sep){
       }
     } else if(lines.every(l=>l.trim().startsWith('|') && l.trim().endsWith('|'))){
       items.push({type:'table', html: renderTableau(lines, main, bg)});
-    } else if(lines.every(l=>l.trim().startsWith('- '))){
-      items.push({type:'list', html: renderListe(lines, main, accent)});
     } else {
-      const size = paraIndex===0 ? 16 : 15;
-      paraIndex++;
-      items.push({type:'para', html: paraHtml(block.trim(), size)});
+      // Traitement ligne par ligne : une ligne commençant par un tiret en
+      // début de ligne ("- ", "– ", "— ", ou collé "-texte") est un item de
+      // liste ; un tiret au milieu d'une ligne (incise) ne compte pas.
+      const segments = [];
+      let courant = null;
+      lines.forEach(ligne=>{
+        const estPuce = /^[-–—]/.test(ligne.trim());
+        const type = estPuce ? 'list' : 'para';
+        if(courant && courant.type===type){
+          courant.lignes.push(ligne);
+        } else {
+          courant = {type, lignes:[ligne]};
+          segments.push(courant);
+        }
+      });
+      segments.forEach(seg=>{
+        if(seg.type==='list'){
+          items.push({type:'list', html: renderListe(seg.lignes, main, accent)});
+        } else {
+          const texte = seg.lignes.join('\n').trim();
+          if(texte){
+            const size = paraIndex===0 ? 16 : 15;
+            paraIndex++;
+            items.push({type:'para', html: paraHtml(texte, size)});
+          }
+        }
+      });
     }
   });
 
