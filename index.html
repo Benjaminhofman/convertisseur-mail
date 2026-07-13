@@ -250,8 +250,8 @@ Cordialement,"></textarea>
 
       <div class="sep-options">
         <span class="sep-label">Style de puce</span>
-        <label><input type="radio" name="stylePuce" value="carre" checked> Carré (couleur de la palette)</label>
-        <label><input type="radio" name="stylePuce" value="emoji"> Émoji 🔹 (couleur garantie partout)</label>
+        <label><input type="radio" name="stylePuce" value="carre"> Carré (couleur de la palette)</label>
+        <label><input type="radio" name="stylePuce" value="emoji" checked> Émoji 🔹 (couleur garantie partout)</label>
       </div>
     </fieldset>
 
@@ -435,23 +435,27 @@ function currentStyleEntete(){
 
 function currentStylePuce(){
   const el = document.querySelector('input[name="stylePuce"]:checked');
-  return el ? el.value : "carre";
+  return el ? el.value : "emoji";
 }
 
-/* ===== Puce ■ (carré coloré, double couche) ou 🔹 (émoji, couleur indestructible au collage) ===== */
-function rendrePuce(stylePuce, accent){
-  return stylePuce === 'emoji' ? '🔹' : doubleCouche('■', accent);
+/* ===== Puce 🔹/🔷 (émoji, couleur indestructible au collage) ou ■ (carré coloré, double couche)
+   contexte 'titre' -> grand losange 🔷 pour les intertitres, 'item' (défaut) -> 🔹 pour les listes ===== */
+function rendrePuce(stylePuce, accent, contexte){
+  if(stylePuce === 'emoji') return contexte === 'titre' ? '🔷' : '🔹';
+  return doubleCouche('■', accent);
 }
 
 /* ===== Liste à puces email-safe : paragraphe inline avec retrait suspendu
-   (puce + texte restent sur la même ligne même si la messagerie aplatit les tableaux) ===== */
+   (puce + texte restent sur la même ligne même si la messagerie aplatit les tableaux)
+   Retrait double sécurité : marge CSS à gauche + espaces insécables en dur, qui
+   survivent même si le nouveau Outlook supprime le style au collage ===== */
 function renderListe(lignes, main, accent, stylePuce){
   const puce = rendrePuce(stylePuce, accent);
   return lignes.map((ligne, i)=>{
     const texteItem = ligne.trim().replace(/^[-–—]\s*/, "");
     const margeHaut = i===0 ? 10 : 0;
     const margeBas = i===lignes.length-1 ? 14 : 8;
-    return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 0; padding-left:18px; text-indent:-18px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
+    return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 16px; padding-left:20px; text-indent:-20px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">&nbsp;&nbsp;${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
   }).join("\n");
 }
 
@@ -519,7 +523,7 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
       const marginTop = headingIndex===0 ? 8 : 26;
       headingIndex++;
       items.push({type:'heading', html:
-`        <p style="margin:${marginTop}px 0 12px 0; padding-left:22px; text-indent:-22px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${rendrePuce(stylePuce, accent)}&nbsp;&nbsp;${doubleCouche(headingText, main)}</p>`});
+`        <p style="margin:${marginTop}px 0 12px 0; padding-left:22px; text-indent:-22px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${rendrePuce(stylePuce, accent, 'titre')}&nbsp;&nbsp;${doubleCouche(headingText, main)}</p>`});
       const rest = lines.slice(1).join('\n').trim();
       if(rest){
         const size = paraIndex===0 ? 16 : 15;
