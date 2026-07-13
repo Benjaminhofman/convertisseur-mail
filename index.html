@@ -391,9 +391,16 @@ function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+/* ===== Double couche couleur (attribut <font color> + <span style>) : survit au filtrage
+   des messageries qui nettoient le style CSS au collage (Outlook, webmails, etc.) ===== */
+function doubleCouche(html, color, styleExtra){
+  const style = styleExtra ? `color:${color}; ${styleExtra}` : `color:${color};`;
+  return `<font color="${color}"><span style="${style}">${html}</span></font>`;
+}
+
 /* ===== Échappement + gestion du **gras** (avec filet de sécurité astérisques orphelines) ===== */
 function formatGras(s, color){
-  const converti = esc(s).replace(/\*\*(.+?)\*\*/g, (m, inner) => `<strong style="color:${color};">${inner}</strong>`);
+  const converti = esc(s).replace(/\*\*(.+?)\*\*/g, (m, inner) => doubleCouche(`<strong style="color:${color};">${inner}</strong>`, color));
   return converti.replace(/\*\*/g, "");
 }
 
@@ -427,7 +434,7 @@ function renderListe(lignes, main, accent){
     return `          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0;">
             <tr>
               <td width="18" valign="top" style="padding-top:3px;">
-                <span style="font-family:Arial,Helvetica,sans-serif; font-size:12px; color:${accent};">■</span>
+                ${doubleCouche('■', accent, 'font-family:Arial,Helvetica,sans-serif; font-size:12px;')}
               </td>
               <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333; padding-bottom:6px;">${formatGras(texteItem, main)}</td>
             </tr>
@@ -496,8 +503,8 @@ function textToHtml(txt, main, accent, bg, sep){
       items.push({type:'heading', html:
 `        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${marginTop}px 0 12px 0;">
           <tr>
-            <td valign="middle"><span style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent};">■</span></td>
-            <td style="padding-left:10px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${headingText}</td>
+            <td valign="middle">${doubleCouche('■', accent, 'font-family:Arial,Helvetica,sans-serif; font-size:14px;')}</td>
+            <td style="padding-left:10px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${doubleCouche(headingText, main)}</td>
           </tr>
         </table>`});
       const rest = lines.slice(1).join('\n').trim();
@@ -542,7 +549,7 @@ function textToHtml(txt, main, accent, bg, sep){
   const sepHtml = sep==='line'
     ? `        <div style="border-top:1px solid #E3E3E3; margin:18px 0;"></div>`
     : sep==='dash'
-      ? `        <p style="margin:18px 0; text-align:center; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:2px;">———</p>`
+      ? `        <p style="margin:18px 0; text-align:center; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:2px;">${doubleCouche('———', accent)}</p>`
       : null;
 
   const out = [];
@@ -583,7 +590,7 @@ function construireMail(){
   const sigMeta  = [fonction, cabinet].filter(Boolean).join(" · ");
   const contact = [];
   if(tel)  contact.push(`Tél. ${tel}`);
-  if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${mail}</a>`);
+  if(mail) contact.push(`<a href="mailto:${mail}" style="color:${accent}; text-decoration:none;">${doubleCouche(mail, accent, 'text-decoration:none;')}</a>`);
 
   const blocBandeau = styleEntete==='bandeau' ? `          <!-- Liseré accent -->
           <tr>
@@ -592,16 +599,16 @@ function construireMail(){
           <!-- Bannière -->
           <tr>
             <td style="background-color:${main}; padding:38px 36px 34px 36px;">
-              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${surtitre}</p>
-              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold;">${entete}</h1>
+              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${doubleCouche(surtitre, accentClair)}</p>
+              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold; text-decoration:none;">${doubleCouche(entete, '#ffffff', 'text-decoration:none;')}</h1>
               <div style="height:3px; width:64px; background-color:${accent}; margin-top:18px;"></div>
             </td>
           </tr>` : "";
 
   const blocSobre = styleEntete==='sobre' ? `                <tr>
                   <td style="padding:32px 0 0 0;">
-                    <h1 style="margin:8px 0 4px 0; font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:${main};">${entete}</h1>
-                    <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:1px;">———</p>
+                    <h1 style="margin:8px 0 4px 0; font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:${main}; text-decoration:none;">${doubleCouche(entete, main, 'text-decoration:none;')}</h1>
+                    <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:1px;">${doubleCouche('———', accent)}</p>
                     <div style="height:18px; line-height:18px; font-size:0;">&nbsp;</div>
                   </td>
                 </tr>` : "";
@@ -635,7 +642,7 @@ ${corps}
                       <tr>
 ${hasName?`                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>`:""}
                         <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
-                          <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${fullName}</p>
+                          <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${doubleCouche(fullName, main)}</p>
 ${sigMeta?`                          <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${sigMeta}</p>`:""}
 ${contact.length?`                          <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
                         </td>
