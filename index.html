@@ -216,14 +216,9 @@ Cordialement,"></textarea>
       <div class="actions" style="margin-top:8px;">
         <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
         <button type="button" class="ghost" id="btnEmojis">Ajouter des émojis</button>
-        <button type="button" class="ghost" id="btnVerifier">Vérifier le mail</button>
         <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
       </div>
       <p class="error-text" id="erreurIA" style="display:none;"></p>
-      <div id="rapportVerif" style="display:none; position:relative; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:14px; font-size:13px; margin-top:10px; white-space:pre-line;">
-        <button type="button" id="btnFermerVerif" style="position:absolute; top:6px; right:8px; background:none; border:none; font-size:16px; line-height:1; cursor:pointer; color:var(--ink-soft); padding:2px 6px;">×</button>
-        <div id="rapportVerifTexte" style="padding-right:20px;"></div>
-      </div>
       <p class="hint">En utilisant la reformulation, le texte du mail est transmis à OpenAI (États-Unis). Selon la politique de l'API OpenAI, ces données ne servent pas à entraîner les modèles et sont conservées au maximum 30 jours à des fins de sécurité. Évitez d'y inclure des données sensibles, ou activez l'anonymisation ci-dessous.</p>
       <label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:6px;">
         <input type="checkbox" id="anonymiser" style="width:auto; margin:0;">
@@ -867,49 +862,6 @@ async function appelEIA(action) {
 
 document.getElementById("btnReformuler").onclick = () => appelEIA("reformuler");
 document.getElementById("btnEmojis").onclick = () => appelEIA("emojis");
-
-/* ===== Vérification (bouton "Vérifier le mail") ===== */
-document.getElementById("btnVerifier").onclick = async () => {
-  const corps = document.getElementById("corps");
-  const btn = document.getElementById("btnVerifier");
-  const erreur = document.getElementById("erreurIA");
-  const rapportDiv = document.getElementById("rapportVerif");
-  const rapportTexte = document.getElementById("rapportVerifTexte");
-  const texte = corps.value.trim();
-
-  erreur.style.display = "none";
-  if (!texte) {
-    erreur.textContent = "Saisissez d'abord le texte du mail.";
-    erreur.style.display = "block";
-    return;
-  }
-
-  btn.disabled = true;
-  const libelle = btn.textContent;
-  btn.textContent = "Vérification en cours…";
-
-  try {
-    const r = await fetch("/api/verifier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texte })
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Erreur serveur.");
-    rapportTexte.textContent = data.rapport;
-    rapportDiv.style.display = "block";
-  } catch (e) {
-    erreur.textContent = e.message;
-    erreur.style.display = "block";
-  } finally {
-    btn.disabled = false;
-    btn.textContent = libelle;
-  }
-};
-
-document.getElementById("btnFermerVerif").onclick = () => {
-  document.getElementById("rapportVerif").style.display = "none";
-};
 
 /* ===== Traduction EN/ES ===== */
 document.getElementById("langueTrad").addEventListener("change", () => {

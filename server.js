@@ -291,50 +291,6 @@ Réponds UNIQUEMENT avec le texte reformulé.`;
   }
 });
 
-/* ===== Relecture de contrôle (sans réécriture) ===== */
-app.post("/api/verifier", async (req, res) => {
-  try {
-    const { texte } = req.body || {};
-    const erreurValidation = validerRequete(texte);
-    if (erreurValidation)
-      return res.status(400).json({ error: erreurValidation });
-
-    const cle = process.env.OPENAI_API_KEY;
-    if (!cle)
-      return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
-
-    const systemPrompt =
-`Tu es relecteur d'emails professionnels en français. Analyse le texte SANS le réécrire et signale UNIQUEMENT les problèmes relevant des 3 catégories suivantes — rien d'autre :
-
-1. CHIFFRES SUSPECTS : un même montant, taux ou quantité cité plusieurs fois avec des valeurs différentes ; un total qui ne correspond pas au détail lorsqu'il est vérifiable dans le texte.
-
-2. PHRASES AMBIGUËS : on ne peut pas déterminer qui doit faire l'action, à destination de qui, ou pour quelle échéance (ex. "les documents devront être transmis" sans précision).
-
-3. INFORMATIONS MANQUANTES : une pièce jointe ou un document mentionné mais jamais listé ou joint ; une demande d'action sans échéance ; un rendez-vous ou événement évoqué sans date, heure ou lieu.
-
-INTERDICTIONS STRICTES :
-- Ne signale PAS les fautes d'orthographe, de grammaire ou de style.
-- Ne signale PAS les incohérences de dates entre elles (ordre chronologique) — seules les 3 catégories ci-dessus comptent.
-- Ne commente pas le ton, la longueur ou la qualité rédactionnelle.
-- Aucun compliment ni remarque générale.
-
-FORMAT DE RÉPONSE :
-- Si aucun problème dans les 3 catégories : exactement "✅ Aucun problème détecté".
-- Sinon : une ligne par problème, commençant par "⚠️ [Chiffres]", "⚠️ [Ambiguïté]" ou "⚠️ [Manquant]" selon la catégorie, suivie du constat en une phrase et de l'extrait concerné entre guillemets.
-- Maximum 8 points, les plus importants d'abord.`;
-
-    const rapport = await appelOpenAI(cle, [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: "Texte à analyser :\n\n" + texte }
-    ], 0.2);
-
-    return res.json({ rapport });
-  } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
-    return res.status(500).json({ error: "Erreur serveur : " + e.message });
-  }
-});
-
 /* ===== Traduction EN/ES ===== */
 app.post("/api/traduire", async (req, res) => {
   try {
