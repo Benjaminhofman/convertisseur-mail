@@ -68,6 +68,7 @@
   input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   textarea{min-height:170px;resize:vertical;line-height:1.5}
   .error-text{color:#B3261E;font-size:.82rem;margin-top:6px}
+  .success-text{color:var(--accent-dark);font-size:.82rem;margin-top:6px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
   /* Palettes */
@@ -187,6 +188,10 @@
       <label for="imgUrl">URL de l'image d'entête</label>
       <input type="text" id="imgUrl" placeholder="https://images.unsplash.com/photo-...">
       <button type="button" class="btn-link" id="btnRemoveImg">Retirer l'image</button>
+
+      <label for="imgUpload">Importer une image (JPG ou PNG, max 5 Mo)</label>
+      <input type="file" id="imgUpload" accept="image/jpeg,image/png">
+      <p id="imgUploadStatut" style="display:none;"></p>
     </fieldset>
 
     <fieldset>
@@ -386,6 +391,64 @@ $("btnRemoveImg").onclick = ()=>{
   selectThumb(null);
   render();
 };
+
+/* ===== Upload local d'image vers hébergement (imgbb) ===== */
+const TAILLE_MAX_IMAGE = 5 * 1024 * 1024;
+
+$("imgUpload").addEventListener("change", async ()=>{
+  const input  = $("imgUpload");
+  const statut = $("imgUploadStatut");
+  const fichier = input.files[0];
+  if (!fichier) return;
+
+  statut.className = "";
+  statut.style.display = "none";
+
+  if (fichier.type !== "image/jpeg" && fichier.type !== "image/png") {
+    statut.textContent = "Format non supporté — seuls les JPG et PNG sont acceptés.";
+    statut.className = "error-text";
+    statut.style.display = "block";
+    input.value = "";
+    return;
+  }
+  if (fichier.size > TAILLE_MAX_IMAGE) {
+    statut.textContent = "Image trop volumineuse (max 5 Mo).";
+    statut.className = "error-text";
+    statut.style.display = "block";
+    input.value = "";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("image", fichier);
+
+  input.disabled = true;
+  statut.textContent = "Envoi de l'image en cours…";
+  statut.className = "hint";
+  statut.style.display = "block";
+
+  try {
+    const r = await fetch("/api/upload-image", {
+      method: "POST",
+      body: formData
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Erreur serveur.");
+
+    $("imgUrl").value = data.url;
+    selectThumb(null);
+    statut.textContent = "Image en ligne ✅";
+    statut.className = "success-text";
+    statut.style.display = "block";
+    render();
+  } catch (e) {
+    statut.textContent = e.message;
+    statut.className = "error-text";
+    statut.style.display = "block";
+  } finally {
+    input.disabled = false;
+  }
+});
 
 /* ===== Échappement HTML ===== */
 function esc(s){

@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -325,6 +326,62 @@ Réponds UNIQUEMENT avec la traduction.`;
     if (e.status) return res.status(e.status).json({ error: e.message });
     return res.status(500).json({ error: "Erreur serveur : " + e.message });
   }
+});
+
+/* ===== Upload local d'image vers hébergement (imgbb) ===== */
+function typeImageReel(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF)
+    return "image/jpeg";
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47 &&
+    buffer[4] === 0x0D && buffer[5] === 0x0A && buffer[6] === 0x1A && buffer[7] === 0x0A
+  )
+    return "image/png";
+  return null;
+}
+
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "image/jpeg" || file.mimetype === "image/png") cb(null, true);
+    else cb(new Error("TYPE_NON_SUPPORTE"));
+  }
+}).single("image");
+
+app.post("/api/upload-image", (req, res) => {
+  uploadImage(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE")
+        return res.status(400).json({ error: "Image trop volumineuse (max 5 Mo)." });
+      return res.status(400).json({ error: "Format non supporté — seuls les JPG et PNG sont acceptés." });
+    }
+    if (!req.file)
+      return res.status(400).json({ error: "Aucune image reçue." });
+    if (!typeImageReel(req.file.buffer))
+      return res.status(400).json({ error: "Format non supporté — seuls les JPG et PNG sont acceptés." });
+
+    const cle = process.env.IMGBB_API_KEY;
+    if (!cle)
+      return res.status(500).json({ error: "Hébergement d'image non configuré sur le serveur." });
+
+    try {
+      const base64 = req.file.buffer.toString("base64");
+      const form = new FormData();
+      form.append("key", cle);
+      form.append("image", base64);
+
+      const r = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: form });
+      const data = await r.json();
+      if (!r.ok || !data.success)
+        return res.status(500).json({ error: "Échec de l'hébergement de l'image, réessayez." });
+
+      return res.json({ url: data.data.url });
+    } catch (e) {
+      return res.status(500).json({ error: "Échec de l'hébergement de l'image, réessayez." });
+    }
+  });
 });
 
 app.listen(process.env.PORT || 3000);
