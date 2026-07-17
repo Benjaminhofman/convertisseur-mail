@@ -1372,7 +1372,11 @@ ${fragment}
 
 /* ===== Fragment sans enveloppe de document, pour la copie riche ===== */
 function buildEmailFragment(){
-  return construireMail().fragment;
+  const fragment = construireMail().fragment;
+  const ruptureLigne = `  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+    <tr><td style="font-size:0; line-height:0; height:1px;">&nbsp;</td></tr>
+  </table>`;
+  return fragment + "\n" + ruptureLigne;
 }
 
 /* ===== Rendu live + aperçu éditable ===== */
