@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import sharp from "sharp";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -366,8 +367,18 @@ app.post("/api/upload-image", (req, res) => {
     if (!cle)
       return res.status(500).json({ error: "Hébergement d'image non configuré sur le serveur." });
 
+    let bufferBandeau;
     try {
-      const base64 = req.file.buffer.toString("base64");
+      bufferBandeau = await sharp(req.file.buffer)
+        .resize(1200, 400, { fit: "cover", position: "attention" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+    } catch (e) {
+      return res.status(400).json({ error: "Image illisible ou format non pris en charge." });
+    }
+
+    try {
+      const base64 = bufferBandeau.toString("base64");
       const form = new FormData();
       form.append("key", cle);
       form.append("image", base64);
