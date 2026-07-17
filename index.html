@@ -133,6 +133,10 @@
   }
   .var-popover label{margin-top:0}
   .var-popover-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+  .var-popover-separateur{
+    text-align:center;font-size:.72rem;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:.05em;margin:12px 0;
+  }
   .var-panel{
     display:none;background:var(--paper);border:1px solid var(--line);
     border-radius:var(--radius);padding:14px;margin-top:6px;
@@ -275,7 +279,14 @@ Cordialement,"></textarea>
       </div>
 
       <div class="var-popover" id="varPopover">
-        <label for="varPopoverLibelle">Libellé de la variable</label>
+        <div id="varPopoverExistanteBloc" style="display:none;">
+          <label for="varPopoverSelect">Utiliser une variable existante</label>
+          <select id="varPopoverSelect"></select>
+          <button type="button" class="btn-mini" id="varPopoverValiderExistante" style="margin-top:8px;">Utiliser cette variable</button>
+          <div class="var-popover-separateur">— ou —</div>
+        </div>
+
+        <label for="varPopoverLibelle">Créer une nouvelle variable</label>
         <input type="text" id="varPopoverLibelle">
         <div class="var-popover-actions">
           <button type="button" class="btn-mini secondaire" id="varPopoverAnnuler">Annuler</button>
@@ -576,9 +587,15 @@ const varSelectionBar = $("varSelectionBar");
 const varSelectionTexte = $("varSelectionTexte");
 const varPopover = $("varPopover");
 const varPopoverLibelle = $("varPopoverLibelle");
+const varPopoverExistanteBloc = $("varPopoverExistanteBloc");
+const varPopoverSelect = $("varPopoverSelect");
 
 function tronquer(s, n){
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+function normaliserTexte(s){
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function detecterSelectionVariable(){
@@ -605,10 +622,33 @@ function proposerLibelleVariable(){
 
 function ouvrirPopoverVariable(){
   if(!selectionCourante) return;
+
+  const texteNormalise = normaliserTexte(selectionCourante.texte);
+  const correspondance = variables.find(v => normaliserTexte(v.valeurDefaut) === texteNormalise);
+
+  if(variables.length > 0){
+    varPopoverSelect.innerHTML = "";
+    variables.forEach(v => {
+      const option = document.createElement("option");
+      option.value = v.id;
+      option.textContent = v.libelle;
+      varPopoverSelect.appendChild(option);
+    });
+    if(correspondance) varPopoverSelect.value = correspondance.id;
+    varPopoverExistanteBloc.style.display = "block";
+  } else {
+    varPopoverExistanteBloc.style.display = "none";
+  }
+
   varPopoverLibelle.value = proposerLibelleVariable();
   varPopover.style.display = "block";
-  varPopoverLibelle.focus();
-  varPopoverLibelle.select();
+
+  if(correspondance){
+    $("varPopoverValiderExistante").focus();
+  } else {
+    varPopoverLibelle.focus();
+    varPopoverLibelle.select();
+  }
 }
 
 function fermerPopoverVariable(){
@@ -617,6 +657,22 @@ function fermerPopoverVariable(){
 
 $("btnTransformerVariable").onclick = ouvrirPopoverVariable;
 $("varPopoverAnnuler").onclick = fermerPopoverVariable;
+
+$("varPopoverValiderExistante").onclick = () => {
+  if(!selectionCourante) return;
+  const id = varPopoverSelect.value;
+  const variable = variables.find(v => v.id === id);
+  if(!variable) return;
+
+  const jeton = `{{${id}}}`;
+  const valeurTextarea = corpsEl.value;
+  corpsEl.value = valeurTextarea.slice(0, selectionCourante.start) + jeton + valeurTextarea.slice(selectionCourante.end);
+
+  selectionCourante = null;
+  varSelectionBar.style.display = "none";
+  fermerPopoverVariable();
+  render();
+};
 
 $("varPopoverValider").onclick = () => {
   if(!selectionCourante) return;
