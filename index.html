@@ -1275,23 +1275,36 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
       // "1.", "1-", "1)", "1:"...) est détectée en tout début de ligne — dès
       // que 2 lignes consécutives suivent ce schéma (garde-fou anti-faux-
       // positif : une ligne isolée type "3. mars 2026" au milieu d'un
-      // paragraphe reste un paragraphe normal). Une ligne courte finissant
-      // par ":" en début de bloc (ou après une ligne vide) est une ligne
-      // d'annonce, mise en valeur à part.
+      // paragraphe reste un paragraphe normal). Une ligne d'annonce (titre de
+      // paragraphe mis en valeur à part) est détectée soit par la règle
+      // historique (ligne <90 caractères finissant par ':', en début de
+      // bloc), soit par une ligne courte (<40 caractères) sans ponctuation
+      // forte finale (. ? !), qui n'est elle-même ni un marqueur ni un item
+      // de liste, et qui précède IMMÉDIATEMENT (sans ligne vide) un item de
+      // liste — utile pour un sous-titre de liste sans ':' (ex.
+      // "Fournisseurs" juste avant une énumération numérotée).
       const REGEX_NUMEROTE = /^\s*\d+[^\w\s]\s*/;
       const estNumeroteBrut = lines.map(l => REGEX_NUMEROTE.test(l));
+      const estItemListeArr = lines.map((l, i) => {
+        const t = l.trim();
+        const estPuceTiret = /^[-–—]/.test(t);
+        const estListeNumerotee = estNumeroteBrut[i] && (estNumeroteBrut[i-1] || estNumeroteBrut[i+1]);
+        return estPuceTiret || estListeNumerotee;
+      });
       const segments = [];
       let courant = null;
       lines.forEach((ligne, idx)=>{
         const trim = ligne.trim();
-        const estPuceTiret = /^[-–—]/.test(trim);
-        const estListeNumerotee = estNumeroteBrut[idx]
-          && (estNumeroteBrut[idx-1] || estNumeroteBrut[idx+1]);
+        const estItemListe = estItemListeArr[idx];
         const debutDeGroupe = idx===0 || lines[idx-1].trim()==="";
         const estMarqueur = /^(#|>|!!|\[\[|\|)/.test(trim);
-        const estAnnonce = !estPuceTiret && !estListeNumerotee && !estMarqueur && debutDeGroupe
+        const estAnnonceAvecDeuxPoints = !estItemListe && !estMarqueur && debutDeGroupe
           && trim.length>0 && trim.length<90 && trim.endsWith(':');
-        const type = (estPuceTiret || estListeNumerotee) ? 'list' : (estAnnonce ? 'annonce' : 'para');
+        const estAnnonceSansDeuxPoints = !estItemListe && !estMarqueur
+          && trim.length>0 && trim.length<40 && !/[.?!]$/.test(trim)
+          && estItemListeArr[idx+1] === true;
+        const estAnnonce = estAnnonceAvecDeuxPoints || estAnnonceSansDeuxPoints;
+        const type = estItemListe ? 'list' : (estAnnonce ? 'annonce' : 'para');
         if(courant && courant.type===type && type!=='annonce'){
           courant.lignes.push(ligne);
         } else {
