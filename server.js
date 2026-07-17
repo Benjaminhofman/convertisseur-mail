@@ -254,6 +254,7 @@ INVARIANTS ABSOLUS (priorité maximale) :
 - Le sens de chaque information est conservé : ne reformule jamais une phrase au point d'en changer la portée (qui fait quoi, qui doit transmettre quoi à qui).
 - Les marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**) sont conservés tels quels.
 - Une ligne courte se terminant par ':' (annonce d'une liste ou d'une section) reste une ligne se terminant par ':', conservée à sa place.
+- Une liste dont les lignes commencent par un numéro suivi d'un séparateur quelconque (1. / 1- / 1) / etc.) est traitée comme une liste à puces existante : conserve le format numéroté d'origine si le texte source l'utilise déjà.
 ${consigneRegistre}
 - N'invente aucune information : si une formule d'ouverture chaleureuse ou une référence serait naturelle mais que le texte ne fournit pas l'information (prénom du destinataire, contexte), reste générique plutôt que d'inventer.
 ${INVARIANT_ANTI_INJECTION}
@@ -314,6 +315,7 @@ app.post("/api/traduire", async (req, res) => {
 INVARIANTS ABSOLUS :
 - Montants, taux, dates, références et noms propres STRICTEMENT inchangés (les dates peuvent adopter le format usuel de la langue cible mais restent le même jour).
 - Marqueurs de mise en forme (##, ###, >, !!, [[...]], **gras**, "- " et "|" de tableaux) conservés à leur place.
+- Une liste dont les lignes commencent par un numéro suivi d'un séparateur quelconque (1. / 1- / 1) / etc.) est traitée comme une liste à puces existante : conserve le format numéroté d'origine si le texte source l'utilise déjà.
 - N'ajoute ni signature ni champ entre crochets.
 ${INVARIANT_ANTI_INJECTION}
 Réponds UNIQUEMENT avec la traduction.`;

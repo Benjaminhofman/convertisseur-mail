@@ -1187,7 +1187,7 @@ function rendrePuce(stylePuce, accent, contexte){
 function renderListe(lignes, main, accent, stylePuce){
   const puce = rendrePuce(stylePuce, accent);
   return lignes.map((ligne, i)=>{
-    const texteItem = ligne.trim().replace(/^[-–—]\s*/, "");
+    const texteItem = ligne.trim().replace(/^[-–—]\s*/, "").replace(/^\d+[^\w\s]\s*/, "");
     const margeHaut = i===0 ? 10 : 0;
     const margeBas = i===lignes.length-1 ? 14 : 8;
     return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 16px; padding-left:20px; text-indent:-20px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">&nbsp;&nbsp;${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
@@ -1271,18 +1271,27 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
       // Traitement ligne par ligne : une ligne commençant par un tiret en
       // début de ligne ("- ", "– ", "— ", ou collé "-texte") est un item de
       // liste ; un tiret au milieu d'une ligne (incise) ne compte pas. Une
-      // ligne courte finissant par ":" en début de bloc (ou après une ligne
-      // vide) est une ligne d'annonce, mise en valeur à part.
+      // liste numérotée (chiffre + séparateur non-alphanumérique quelconque :
+      // "1.", "1-", "1)", "1:"...) est détectée en tout début de ligne — dès
+      // que 2 lignes consécutives suivent ce schéma (garde-fou anti-faux-
+      // positif : une ligne isolée type "3. mars 2026" au milieu d'un
+      // paragraphe reste un paragraphe normal). Une ligne courte finissant
+      // par ":" en début de bloc (ou après une ligne vide) est une ligne
+      // d'annonce, mise en valeur à part.
+      const REGEX_NUMEROTE = /^\s*\d+[^\w\s]\s*/;
+      const estNumeroteBrut = lines.map(l => REGEX_NUMEROTE.test(l));
       const segments = [];
       let courant = null;
       lines.forEach((ligne, idx)=>{
         const trim = ligne.trim();
-        const estPuce = /^[-–—]/.test(trim);
+        const estPuceTiret = /^[-–—]/.test(trim);
+        const estListeNumerotee = estNumeroteBrut[idx]
+          && (estNumeroteBrut[idx-1] || estNumeroteBrut[idx+1]);
         const debutDeGroupe = idx===0 || lines[idx-1].trim()==="";
         const estMarqueur = /^(#|>|!!|\[\[|\|)/.test(trim);
-        const estAnnonce = !estPuce && !estMarqueur && debutDeGroupe
+        const estAnnonce = !estPuceTiret && !estListeNumerotee && !estMarqueur && debutDeGroupe
           && trim.length>0 && trim.length<90 && trim.endsWith(':');
-        const type = estPuce ? 'list' : (estAnnonce ? 'annonce' : 'para');
+        const type = (estPuceTiret || estListeNumerotee) ? 'list' : (estAnnonce ? 'annonce' : 'para');
         if(courant && courant.type===type && type!=='annonce'){
           courant.lignes.push(ligne);
         } else {
