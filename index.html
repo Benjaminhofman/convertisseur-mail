@@ -390,10 +390,38 @@ Cordialement,"></textarea>
       </div>
     </details>
 
+    <details class="accordion-section" id="secDestinataires">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">3 · Destinataires</span>
+        <span class="section-resume" id="resumeDestinataires"></span>
+      </summary>
+      <div class="accordion-body">
+        <p class="hint" id="destEmptyHint">Créez au moins une variable dans « 2 · Texte du mail » pour activer la génération de mails personnalisés par destinataire.</p>
+        <div id="destContenu" style="display:none;">
+          <div class="dest-table-wrap">
+            <table class="dest-table">
+              <thead><tr id="destTableHead"></tr></thead>
+              <tbody id="destTableBody"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
+
+          <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
+          <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre des variables affichées ci-dessus."></textarea>
+          <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
+
+          <div class="actions" style="margin-top:14px;">
+            <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <details class="accordion-section" id="secIA">
       <summary>
         <span class="accordion-chevron"></span>
-        <span class="accordion-titre">3 · Assistant IA</span>
+        <span class="accordion-titre">4 · Assistant IA</span>
         <span class="section-resume" id="resumeIA"></span>
       </summary>
       <div class="accordion-body">
@@ -431,34 +459,6 @@ Cordialement,"></textarea>
             <option value="es">Espagnol</option>
           </select>
           <button type="button" class="ghost" id="btnTraduire" disabled>Traduire</button>
-        </div>
-      </div>
-    </details>
-
-    <details class="accordion-section" id="secDestinataires">
-      <summary>
-        <span class="accordion-chevron"></span>
-        <span class="accordion-titre">4 · Destinataires</span>
-        <span class="section-resume" id="resumeDestinataires"></span>
-      </summary>
-      <div class="accordion-body">
-        <p class="hint" id="destEmptyHint">Créez au moins une variable dans « 2 · Texte du mail » pour activer la génération de mails personnalisés par destinataire.</p>
-        <div id="destContenu" style="display:none;">
-          <div class="dest-table-wrap">
-            <table class="dest-table">
-              <thead><tr id="destTableHead"></tr></thead>
-              <tbody id="destTableBody"></tbody>
-            </table>
-          </div>
-          <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
-
-          <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
-          <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre des variables affichées ci-dessus."></textarea>
-          <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
-
-          <div class="actions" style="margin-top:14px;">
-            <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
-          </div>
         </div>
       </div>
     </details>
