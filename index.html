@@ -542,6 +542,7 @@ Cordialement,"></textarea>
           <div><label for="prenom">Prénom</label><input type="text" id="prenom" placeholder="Marie"></div>
           <div><label for="nom">Nom</label><input type="text" id="nom" placeholder="Dupont"></div>
         </div>
+        <p class="hint">Laissez ces deux champs vides si vous utilisez votre propre signature Outlook — aucune signature ne sera ajoutée au mail généré.</p>
         <div class="grid2">
           <div><label for="fonction">Fonction (optionnel)</label><input type="text" id="fonction" placeholder="Expert-comptable"></div>
           <div><label for="cabinet">Cabinet / Société (optionnel)</label><input type="text" id="cabinet" placeholder="Cabinet Dupont & Associés"></div>
@@ -1347,8 +1348,8 @@ function construireMail(){
   const accentClair = lighten(accent, 0.45);
   const styleEntete = currentStyleEntete();
 
-  const fullName = [prenom, nom].filter(Boolean).join(" ") || "Prénom Nom";
-  const hasName  = Boolean(prenom || nom);
+  const fullName = [prenom, nom].filter(Boolean).join(" ");
+  const afficherSignature = Boolean(prenom || nom);
   const initials = ((prenom.charAt(0)||"") + (nom.charAt(0)||"")).toUpperCase();
   const sigMeta  = [fonction, cabinet].filter(Boolean).join(" · ");
   const contact = [];
@@ -1378,6 +1379,21 @@ function construireMail(){
 
   const paddingCorpsHaut = styleEntete==='sobre' ? "0" : "30px";
 
+  const blocSignature = afficherSignature ? `                <tr>
+                  <td style="padding:10px 0 30px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
+                      <tr>
+                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>
+                        <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
+                          <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${doubleCouche(fullName, main)}</p>
+${sigMeta?`                          <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${sigMeta}</p>`:""}
+${contact.length?`                          <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>` : "";
+
   const fragment = `  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
     <tr>
       <td align="left" style="padding:0;">
@@ -1399,20 +1415,7 @@ ${blocSobre}
 ${corps}
                   </td>
                 </tr>
-                <tr>
-                  <td style="padding:10px 0 30px 0;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
-                      <tr>
-${hasName?`                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>`:""}
-                        <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
-                          <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${doubleCouche(fullName, main)}</p>
-${sigMeta?`                          <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${sigMeta}</p>`:""}
-${contact.length?`                          <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+${blocSignature}
               </table>
             </td>
           </tr>
