@@ -109,6 +109,54 @@
   }
   .btn-link:hover{color:var(--ink)}
 
+  /* Variables réutilisables */
+  .btn-mini{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.78rem;
+    border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap;
+    background:var(--accent);color:#fff;border:none;
+  }
+  .btn-mini:hover{background:var(--accent-dark)}
+  .btn-mini.secondaire{background:#fff;color:var(--ink-soft);border:1px solid var(--line)}
+  .btn-mini.secondaire:hover{border-color:var(--ink-soft);color:var(--ink)}
+  .var-selection-bar{
+    display:none;align-items:center;gap:10px;
+    background:var(--paper);border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;margin-top:8px;
+  }
+  .var-selection-bar span{
+    flex:1;font-size:.8rem;color:var(--ink-soft);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .var-popover{
+    display:none;background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:12px;margin-top:8px;box-shadow:0 4px 14px rgba(0,0,0,.08);
+  }
+  .var-popover label{margin-top:0}
+  .var-popover-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+  .var-panel{
+    display:none;background:var(--paper);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px;margin-top:6px;
+  }
+  .var-panel-title{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.8rem;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--accent-dark);margin-bottom:10px;
+  }
+  .var-item{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .var-item:last-child{margin-bottom:0}
+  .var-item-libelle{
+    font-weight:700;font-size:.85rem;color:var(--ink);flex:0 0 38%;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .var-item-valeur{
+    flex:1;border:1px solid var(--line);border-radius:6px;padding:7px 9px;
+    font:inherit;font-size:.85rem;background:#fff;color:var(--ink);
+  }
+  .var-item-suppr{
+    background:none;border:none;font-size:16px;line-height:1;cursor:pointer;
+    color:var(--ink-soft);padding:2px 8px;
+  }
+  .var-item-suppr:hover{color:#B3261E}
+
   /* Séparateurs entre paragraphes */
   .hint{font-size:12px;color:var(--ink-soft);margin-top:6px}
   .sep-options{margin-top:10px}
@@ -202,6 +250,26 @@
 Nous vous rappelons que...
 
 Cordialement,"></textarea>
+
+      <div class="var-selection-bar" id="varSelectionBar">
+        <span id="varSelectionTexte"></span>
+        <button type="button" class="btn-mini" id="btnTransformerVariable">Transformer en variable</button>
+      </div>
+
+      <div class="var-popover" id="varPopover">
+        <label for="varPopoverLibelle">Libellé de la variable</label>
+        <input type="text" id="varPopoverLibelle">
+        <div class="var-popover-actions">
+          <button type="button" class="btn-mini secondaire" id="varPopoverAnnuler">Annuler</button>
+          <button type="button" class="btn-mini" id="varPopoverValider">Créer la variable</button>
+        </div>
+      </div>
+
+      <p class="hint" id="varPanelHint" style="display:none;">Sélectionnez un mot ou un passage dans le texte pour le rendre modifiable.</p>
+      <div class="var-panel" id="varPanel">
+        <div class="var-panel-title">Variables du mail</div>
+        <div id="varList"></div>
+      </div>
 
       <label for="tonStyle">Style</label>
       <select id="tonStyle">
@@ -450,6 +518,139 @@ $("imgUpload").addEventListener("change", async ()=>{
   }
 });
 
+/* ===== Variables réutilisables par sélection de texte ===== */
+let variables = [];
+let varCompteur = 0;
+let selectionCourante = null;
+
+const corpsEl = $("corps");
+const varSelectionBar = $("varSelectionBar");
+const varSelectionTexte = $("varSelectionTexte");
+const varPopover = $("varPopover");
+const varPopoverLibelle = $("varPopoverLibelle");
+
+function tronquer(s, n){
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+function detecterSelectionVariable(){
+  const start = corpsEl.selectionStart;
+  const end = corpsEl.selectionEnd;
+  if(end > start){
+    selectionCourante = { start, end, texte: corpsEl.value.slice(start, end) };
+    varSelectionTexte.textContent = `« ${tronquer(selectionCourante.texte.trim(), 60)} »`;
+    varSelectionBar.style.display = "flex";
+  } else {
+    selectionCourante = null;
+    varSelectionBar.style.display = "none";
+    fermerPopoverVariable();
+  }
+}
+corpsEl.addEventListener("mouseup", detecterSelectionVariable);
+corpsEl.addEventListener("keyup", detecterSelectionVariable);
+
+function proposerLibelleVariable(){
+  const avant = corpsEl.value.slice(0, selectionCourante.start);
+  if(/bonjour\s+$/i.test(avant)) return "Nom du client";
+  return `Élément ${varCompteur + 1}`;
+}
+
+function ouvrirPopoverVariable(){
+  if(!selectionCourante) return;
+  varPopoverLibelle.value = proposerLibelleVariable();
+  varPopover.style.display = "block";
+  varPopoverLibelle.focus();
+  varPopoverLibelle.select();
+}
+
+function fermerPopoverVariable(){
+  varPopover.style.display = "none";
+}
+
+$("btnTransformerVariable").onclick = ouvrirPopoverVariable;
+$("varPopoverAnnuler").onclick = fermerPopoverVariable;
+
+$("varPopoverValider").onclick = () => {
+  if(!selectionCourante) return;
+  varCompteur++;
+  const id = `var_${varCompteur}`;
+  const libelle = varPopoverLibelle.value.trim() || `Élément ${varCompteur}`;
+  const valeurDefaut = selectionCourante.texte;
+  variables.push({ id, libelle, valeurDefaut });
+
+  const jeton = `{{${id}}}`;
+  const valeurTextarea = corpsEl.value;
+  corpsEl.value = valeurTextarea.slice(0, selectionCourante.start) + jeton + valeurTextarea.slice(selectionCourante.end);
+
+  selectionCourante = null;
+  varSelectionBar.style.display = "none";
+  fermerPopoverVariable();
+  renderPanneauVariables();
+  render();
+};
+
+function supprimerVariable(id){
+  const variable = variables.find(v => v.id === id);
+  if(!variable) return;
+  corpsEl.value = corpsEl.value.split(`{{${id}}}`).join(variable.valeurDefaut);
+  variables = variables.filter(v => v.id !== id);
+  renderPanneauVariables();
+  render();
+}
+
+function renderPanneauVariables(){
+  const panel = $("varPanel");
+  const hint = $("varPanelHint");
+  const liste = $("varList");
+  liste.innerHTML = "";
+
+  if(variables.length === 0){
+    panel.style.display = "none";
+    hint.style.display = "none";
+    return;
+  }
+
+  hint.style.display = "block";
+  panel.style.display = "block";
+  variables.forEach(v => {
+    const row = document.createElement("div");
+    row.className = "var-item";
+
+    const libelleEl = document.createElement("div");
+    libelleEl.className = "var-item-libelle";
+    libelleEl.textContent = v.libelle;
+
+    const valeurEl = document.createElement("input");
+    valeurEl.type = "text";
+    valeurEl.className = "var-item-valeur";
+    valeurEl.value = v.valeurDefaut;
+    valeurEl.addEventListener("input", () => {
+      v.valeurDefaut = valeurEl.value;
+      render();
+    });
+
+    const supprEl = document.createElement("button");
+    supprEl.type = "button";
+    supprEl.className = "var-item-suppr";
+    supprEl.title = "Supprimer la variable";
+    supprEl.textContent = "×";
+    supprEl.onclick = () => supprimerVariable(v.id);
+
+    row.appendChild(libelleEl);
+    row.appendChild(valeurEl);
+    row.appendChild(supprEl);
+    liste.appendChild(row);
+  });
+}
+
+function substituerVariables(texte){
+  let out = texte;
+  variables.forEach(v => {
+    out = out.split(`{{${v.id}}}`).join(v.valeurDefaut);
+  });
+  return out;
+}
+
 /* ===== Échappement HTML ===== */
 function esc(s){
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -660,8 +861,9 @@ function construireMail(){
   const cabinet = esc($("cabinet").value.trim());
   const tel     = esc($("tel").value.trim());
   const mail    = esc($("mail").value.trim());
-  const corpsRaw = $("corps").value.trim();
-  const corps    = textToHtml($("corps").value, main, accent, bg, currentSeparator(), currentStylePuce());
+  const corpsSubstitue = substituerVariables($("corps").value);
+  const corpsRaw = corpsSubstitue.trim();
+  const corps    = textToHtml(corpsSubstitue, main, accent, bg, currentSeparator(), currentStylePuce());
   const preheader = esc(corpsRaw.replace(/\*\*/g,"").replace(/\s+/g," ").slice(0,90));
   const imgUrl   = esc($("imgUrl").value.trim());
 
@@ -834,7 +1036,7 @@ $("btnCopyRendu").onclick = async ()=>{
     texteBrut = iframeDoc.body.innerText;
   }else{
     fragment = buildEmailFragment();
-    texteBrut = document.getElementById("corps").value;
+    texteBrut = substituerVariables(document.getElementById("corps").value);
   }
   let succes = false;
 
