@@ -412,9 +412,6 @@ Cordialement,"></textarea>
       <span id="navDestinatairesTexte" style="font-weight:600;"></span>
       <button type="button" class="btn-link" id="btnDestSuivant" style="padding:4px 8px;">Suivant →</button>
     </div>
-    <div class="actions" id="destExportActions" style="display:none; margin-top:0;">
-      <button type="button" class="ghost" id="btnTelechargerEml">Télécharger tous les brouillons (.eml)</button>
-    </div>
     <div id="bandeauApercu" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:12px;">
       <span>✏️ Aperçu modifié manuellement — les modifications du formulaire écraseront ces retouches.</span>
       <button type="button" id="btnAnnulerRetouches" class="btn-link" style="white-space:nowrap; padding:0;">Annuler les retouches</button>
@@ -432,7 +429,6 @@ Cordialement,"></textarea>
 
 <div class="toast" id="toast">HTML copié dans le presse-papiers</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 /* ===== Palettes prédéfinies : [principale, accent, fond] ===== */
 const PALETTES = [
@@ -927,7 +923,6 @@ function genererMails(){
     mailsGeneres = [];
     indexDestinataireActif = -1;
     $("navDestinataires").style.display = "none";
-    $("destExportActions").style.display = "none";
     return;
   }
 
@@ -941,7 +936,6 @@ function afficherDestinataireActif(){
   const courant = mailsGeneres[indexDestinataireActif];
 
   $("navDestinataires").style.display = "flex";
-  $("destExportActions").style.display = "flex";
   $("navDestinatairesTexte").textContent = `Destinataire ${indexDestinataireActif + 1}/${total} — ${courant.email}`;
   $("btnDestPrecedent").disabled = indexDestinataireActif === 0;
   $("btnDestSuivant").disabled = indexDestinataireActif === total - 1;
@@ -965,42 +959,6 @@ $("btnDestSuivant").onclick = () => {
     indexDestinataireActif++;
     afficherDestinataireActif();
   }
-};
-
-function assainirNomFichier(nom){
-  const propre = (nom || "").trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
-  return propre || "destinataire";
-}
-
-$("btnTelechargerEml").onclick = async () => {
-  if(mailsGeneres.length === 0) return;
-
-  const zip = new JSZip();
-  const nomsUtilises = new Set();
-  mailsGeneres.forEach(m => {
-    const emlContenu = `To: ${m.email}\r\nSubject: ${m.entete}\r\nContent-Type: text/html; charset=utf-8\r\nMIME-Version: 1.0\r\n\r\n${m.html}`;
-    const base = assainirNomFichier(m.email);
-    let nom = base;
-    let i = 2;
-    while(nomsUtilises.has(nom)){
-      nom = `${base}_${i}`;
-      i++;
-    }
-    nomsUtilises.add(nom);
-    zip.file(`${nom}.eml`, emlContenu);
-  });
-
-  const blob = await zip.generateAsync({ type: "blob" });
-  const d = new Date();
-  const dateJour = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `mails-${dateJour}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 /* ===== Échappement HTML ===== */
@@ -1358,7 +1316,6 @@ function render(){
     indexDestinataireActif = -1;
     mailsGeneres = [];
     $("navDestinataires").style.display = "none";
-    $("destExportActions").style.display = "none";
   }
   apercuModifie = false;
   $("bandeauApercu").style.display = "none";
