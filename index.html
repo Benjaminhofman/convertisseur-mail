@@ -49,13 +49,59 @@
     border-radius:var(--radius);
     padding:20px;
   }
-  fieldset{border:none;margin-bottom:22px}
-  legend{
+
+  /* Bandeau de statut */
+  .status-bar{
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:9px 32px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    font-size:.78rem;color:var(--ink-soft);
+  }
+  .status-dot{
+    width:9px;height:9px;border-radius:50%;display:inline-block;
+    margin-right:5px;vertical-align:middle;flex:none;
+  }
+  .status-sep{color:var(--line)}
+  @media(max-width:900px){.status-bar{padding:9px 16px}}
+
+  /* Formulaire en accordéon */
+  .form-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .accordion-section{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;
+  }
+  .accordion-section > summary{
+    list-style:none;cursor:pointer;user-select:none;
+    display:flex;align-items:center;gap:10px;
+    padding:16px 20px;
+  }
+  .accordion-section > summary::-webkit-details-marker{display:none}
+  .accordion-section > summary::marker{content:""}
+  .accordion-section > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .accordion-section[open] > summary{border-bottom:1px solid var(--line)}
+  .accordion-chevron{
+    width:8px;height:8px;flex:none;
+    border-right:2px solid var(--accent-dark);border-bottom:2px solid var(--accent-dark);
+    transform:rotate(-45deg);transition:transform .15s;
+  }
+  .accordion-section[open] > summary .accordion-chevron{transform:rotate(45deg)}
+  .accordion-titre{
     font-family:'Space Grotesk',sans-serif;
     font-weight:700;font-size:.8rem;letter-spacing:.08em;
-    text-transform:uppercase;color:var(--accent-dark);
-    margin-bottom:10px;
+    text-transform:uppercase;color:var(--accent-dark);white-space:nowrap;
   }
+  .section-resume{
+    font-family:'Public Sans',sans-serif;font-weight:400;
+    text-transform:none;letter-spacing:0;
+    color:var(--ink-soft);font-size:.78rem;
+    flex:1;text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .accordion-body{padding:20px}
+  @media(max-width:900px){
+    .accordion-section > summary{padding:13px 16px}
+    .accordion-body{padding:16px}
+  }
+
   label{display:block;font-size:.82rem;font-weight:600;color:var(--ink-soft);margin:10px 0 4px}
   input[type=text],input[type=email],textarea,select{
     width:100%;
@@ -201,6 +247,12 @@
 
   /* Preview panel */
   .preview-wrap{display:flex;flex-direction:column;gap:14px;min-width:0}
+  @media(min-width:901px){
+    .preview-wrap{
+      position:sticky;top:20px;align-self:start;
+      max-height:calc(100vh - 40px);overflow-y:auto;
+    }
+  }
   .mailframe{
     background:#fff;border:1px solid var(--line);border-radius:var(--radius);
     overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:480px;
@@ -235,172 +287,224 @@
   <p>Transformez le texte de votre mail en HTML prêt à l'envoi, quelle que soit votre messagerie.</p>
 </header>
 
+<div class="status-bar" id="statusBar">
+  <span><i class="status-dot" id="statusPaletteDot"></i><span id="statusPaletteNom"></span></span>
+  <span class="status-sep">·</span>
+  <span id="statusTon"></span>
+  <span class="status-sep">·</span>
+  <span id="statusVariables"></span>
+  <span class="status-sep" id="statusDestSep" style="display:none;">·</span>
+  <span id="statusDestinataires" style="display:none;"></span>
+</div>
+
 <main>
   <!-- ===== Formulaire ===== -->
-  <section class="card">
-    <fieldset>
-      <legend>1 · Entête du mail</legend>
-      <label for="entete">Titre affiché en bannière</label>
-      <input type="text" id="entete" placeholder="Ex. : Rappel — Échéance TVA du 15 juillet" value="">
+  <section class="form-col">
+    <details class="accordion-section" id="secEntete" open>
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">1 · Entête du mail</span>
+        <span class="section-resume" id="resumeEntete"></span>
+      </summary>
+      <div class="accordion-body">
+        <label for="entete">Titre affiché en bannière</label>
+        <input type="text" id="entete" placeholder="Ex. : Rappel — Échéance TVA du 15 juillet" value="">
 
-      <div class="sep-options">
-        <span class="sep-label">Style d'entête</span>
-        <label><input type="radio" name="styleEntete" value="sobre" checked> Sobre</label>
-        <label><input type="radio" name="styleEntete" value="bandeau"> Bandeau</label>
-        <label><input type="radio" name="styleEntete" value="minimal"> Minimal</label>
+        <div class="sep-options">
+          <span class="sep-label">Style d'entête</span>
+          <label><input type="radio" name="styleEntete" value="sobre" checked> Sobre</label>
+          <label><input type="radio" name="styleEntete" value="bandeau"> Bandeau</label>
+          <label><input type="radio" name="styleEntete" value="minimal"> Minimal</label>
+        </div>
+
+        <label>Image d'entête (optionnel)</label>
+        <div class="hdr-gallery" id="hdrGallery"></div>
+        <a href="https://unsplash.com/fr/s/photos/bureau-professionnel" target="_blank" rel="noopener" class="hdr-link">Parcourir Unsplash pour d'autres images →</a>
+        <p class="hdr-note">Clic droit sur la photo choisie → Copier l'adresse de l'image, puis collez-la ci-dessous.</p>
+
+        <label for="imgUrl">URL de l'image d'entête</label>
+        <input type="text" id="imgUrl" placeholder="https://images.unsplash.com/photo-...">
+        <button type="button" class="btn-link" id="btnRemoveImg">Retirer l'image</button>
+
+        <label for="imgUpload">Importer une image (JPG ou PNG, max 5 Mo)</label>
+        <input type="file" id="imgUpload" accept="image/jpeg,image/png">
+        <p id="imgUploadStatut" style="display:none;"></p>
       </div>
+    </details>
 
-      <label>Image d'entête (optionnel)</label>
-      <div class="hdr-gallery" id="hdrGallery"></div>
-      <a href="https://unsplash.com/fr/s/photos/bureau-professionnel" target="_blank" rel="noopener" class="hdr-link">Parcourir Unsplash pour d'autres images →</a>
-      <p class="hdr-note">Clic droit sur la photo choisie → Copier l'adresse de l'image, puis collez-la ci-dessous.</p>
-
-      <label for="imgUrl">URL de l'image d'entête</label>
-      <input type="text" id="imgUrl" placeholder="https://images.unsplash.com/photo-...">
-      <button type="button" class="btn-link" id="btnRemoveImg">Retirer l'image</button>
-
-      <label for="imgUpload">Importer une image (JPG ou PNG, max 5 Mo)</label>
-      <input type="file" id="imgUpload" accept="image/jpeg,image/png">
-      <p id="imgUploadStatut" style="display:none;"></p>
-    </fieldset>
-
-    <fieldset>
-      <legend>2 · Texte du mail</legend>
-      <label for="corps">Collez votre texte (les paragraphes sont conservés)</label>
-      <textarea id="corps" placeholder="Bonjour,
+    <details class="accordion-section" id="secTexte">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">2 · Texte du mail</span>
+        <span class="section-resume" id="resumeTexte"></span>
+      </summary>
+      <div class="accordion-body">
+        <label for="corps">Collez votre texte (les paragraphes sont conservés)</label>
+        <textarea id="corps" placeholder="Bonjour,
 
 Nous vous rappelons que...
 
 Cordialement,"></textarea>
 
-      <div class="var-selection-bar" id="varSelectionBar">
-        <span id="varSelectionTexte"></span>
-        <button type="button" class="btn-mini" id="btnTransformerVariable">Transformer en variable</button>
-      </div>
-
-      <div class="var-popover" id="varPopover">
-        <div id="varPopoverExistanteBloc" style="display:none;">
-          <label for="varPopoverSelect">Utiliser une variable existante</label>
-          <select id="varPopoverSelect"></select>
-          <button type="button" class="btn-mini" id="varPopoverValiderExistante" style="margin-top:8px;">Utiliser cette variable</button>
-          <div class="var-popover-separateur">— ou —</div>
+        <div class="var-selection-bar" id="varSelectionBar">
+          <span id="varSelectionTexte"></span>
+          <button type="button" class="btn-mini" id="btnTransformerVariable">Transformer en variable</button>
         </div>
 
-        <label for="varPopoverLibelle">Créer une nouvelle variable</label>
-        <input type="text" id="varPopoverLibelle">
-        <div class="var-popover-actions">
-          <button type="button" class="btn-mini secondaire" id="varPopoverAnnuler">Annuler</button>
-          <button type="button" class="btn-mini" id="varPopoverValider">Créer la variable</button>
+        <div class="var-popover" id="varPopover">
+          <div id="varPopoverExistanteBloc" style="display:none;">
+            <label for="varPopoverSelect">Utiliser une variable existante</label>
+            <select id="varPopoverSelect"></select>
+            <button type="button" class="btn-mini" id="varPopoverValiderExistante" style="margin-top:8px;">Utiliser cette variable</button>
+            <div class="var-popover-separateur">— ou —</div>
+          </div>
+
+          <label for="varPopoverLibelle">Créer une nouvelle variable</label>
+          <input type="text" id="varPopoverLibelle">
+          <div class="var-popover-actions">
+            <button type="button" class="btn-mini secondaire" id="varPopoverAnnuler">Annuler</button>
+            <button type="button" class="btn-mini" id="varPopoverValider">Créer la variable</button>
+          </div>
+        </div>
+
+        <p class="hint" id="varPanelHint" style="display:none;">Sélectionnez un mot ou un passage dans le texte pour le rendre modifiable.</p>
+        <div class="var-panel" id="varPanel">
+          <div class="var-panel-title">Variables du mail</div>
+          <div id="varList"></div>
+        </div>
+
+        <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
+
+        <div class="sep-options">
+          <span class="sep-label">Séparateur entre paragraphes</span>
+          <label><input type="radio" name="separateur" value="none" checked> Aucun</label>
+          <label><input type="radio" name="separateur" value="line"> Filet fin</label>
+          <label><input type="radio" name="separateur" value="dash"> Tiret accent</label>
+        </div>
+
+        <div class="sep-options">
+          <span class="sep-label">Style de puce</span>
+          <label><input type="radio" name="stylePuce" value="carre"> Carré (couleur de la palette)</label>
+          <label><input type="radio" name="stylePuce" value="emoji" checked> Émoji 🔹 (couleur garantie partout)</label>
         </div>
       </div>
+    </details>
 
-      <p class="hint" id="varPanelHint" style="display:none;">Sélectionnez un mot ou un passage dans le texte pour le rendre modifiable.</p>
-      <div class="var-panel" id="varPanel">
-        <div class="var-panel-title">Variables du mail</div>
-        <div id="varList"></div>
-      </div>
-
-      <div class="var-panel" id="destPanel" style="display:none;">
-        <div class="var-panel-title">Destinataires</div>
-        <div class="dest-table-wrap">
-          <table class="dest-table">
-            <thead><tr id="destTableHead"></tr></thead>
-            <tbody id="destTableBody"></tbody>
-          </table>
-        </div>
-        <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
-
-        <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
-        <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre des variables affichées ci-dessus."></textarea>
-        <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
-
-        <div class="actions" style="margin-top:14px;">
-          <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
-        </div>
-      </div>
-
-      <label for="tonStyle">Style</label>
-      <select id="tonStyle">
-        <option value="professionnel et courtois" selected>Professionnel et courtois</option>
-        <option value="amical et chaleureux, tout en restant professionnel">Amical et chaleureux</option>
-        <option value="formel et solennel, adapté à une administration ou un courrier officiel">Formel et solennel</option>
-        <option value="ferme mais courtois, adapté à une relance">Ferme mais courtois (relance)</option>
-        <option value="rassurant et empathique, adapté à un client en difficulté">Rassurant et empathique</option>
-        <option value="pédagogue et accessible, en vulgarisant les notions techniques">Pédagogue et accessible</option>
-        <option value="concis et factuel, en allant à l'essentiel">Concis et factuel</option>
-      </select>
-
-      <label style="display:inline-flex; align-items:center; gap:6px; font-size:.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer; margin-top:8px;">
-        <input type="checkbox" id="tutoiement"> Tutoiement
-      </label>
-
-      <div class="actions" style="margin-top:8px;">
-        <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
-        <button type="button" class="ghost" id="btnEmojis">Ajouter des émojis</button>
-        <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
-      </div>
-      <p class="error-text" id="erreurIA" style="display:none;"></p>
-      <p class="hint">En utilisant la reformulation, le texte du mail est transmis à OpenAI (États-Unis). Selon la politique de l'API OpenAI, ces données ne servent pas à entraîner les modèles et sont conservées au maximum 30 jours à des fins de sécurité. Évitez d'y inclure des données sensibles, ou activez l'anonymisation ci-dessous.</p>
-      <label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:6px;">
-        <input type="checkbox" id="anonymiser" style="width:auto; margin:0;">
-        Anonymiser les données avant envoi à l'IA (noms, emails, téléphones, montants)
-      </label>
-
-      <div class="actions" style="margin-top:10px;">
-        <select id="langueTrad" style="width:auto;">
-          <option value="" selected>Traduire en…</option>
-          <option value="en">Anglais</option>
-          <option value="es">Espagnol</option>
+    <details class="accordion-section" id="secIA">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">3 · Assistant IA</span>
+        <span class="section-resume" id="resumeIA"></span>
+      </summary>
+      <div class="accordion-body">
+        <label for="tonStyle">Style</label>
+        <select id="tonStyle">
+          <option value="professionnel et courtois" selected>Professionnel et courtois</option>
+          <option value="amical et chaleureux, tout en restant professionnel">Amical et chaleureux</option>
+          <option value="formel et solennel, adapté à une administration ou un courrier officiel">Formel et solennel</option>
+          <option value="ferme mais courtois, adapté à une relance">Ferme mais courtois (relance)</option>
+          <option value="rassurant et empathique, adapté à un client en difficulté">Rassurant et empathique</option>
+          <option value="pédagogue et accessible, en vulgarisant les notions techniques">Pédagogue et accessible</option>
+          <option value="concis et factuel, en allant à l'essentiel">Concis et factuel</option>
         </select>
-        <button type="button" class="ghost" id="btnTraduire" disabled>Traduire</button>
-      </div>
 
-      <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
+        <label style="display:inline-flex; align-items:center; gap:6px; font-size:.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer; margin-top:8px;">
+          <input type="checkbox" id="tutoiement"> Tutoiement
+        </label>
 
-      <div class="sep-options">
-        <span class="sep-label">Séparateur entre paragraphes</span>
-        <label><input type="radio" name="separateur" value="none" checked> Aucun</label>
-        <label><input type="radio" name="separateur" value="line"> Filet fin</label>
-        <label><input type="radio" name="separateur" value="dash"> Tiret accent</label>
-      </div>
+        <div class="actions" style="margin-top:8px;">
+          <button type="button" class="ghost" id="btnReformuler">Reformuler le texte</button>
+          <button type="button" class="ghost" id="btnEmojis">Ajouter des émojis</button>
+          <button type="button" class="ghost" id="btnAnnulerIA" style="display:none;">Annuler la reformulation</button>
+        </div>
+        <p class="error-text" id="erreurIA" style="display:none;"></p>
+        <p class="hint">En utilisant la reformulation, le texte du mail est transmis à OpenAI (États-Unis). Selon la politique de l'API OpenAI, ces données ne servent pas à entraîner les modèles et sont conservées au maximum 30 jours à des fins de sécurité. Évitez d'y inclure des données sensibles, ou activez l'anonymisation ci-dessous.</p>
+        <label style="display:flex; align-items:center; gap:6px; font-weight:400; margin-top:6px;">
+          <input type="checkbox" id="anonymiser" style="width:auto; margin:0;">
+          Anonymiser les données avant envoi à l'IA (noms, emails, téléphones, montants)
+        </label>
 
-      <div class="sep-options">
-        <span class="sep-label">Style de puce</span>
-        <label><input type="radio" name="stylePuce" value="carre"> Carré (couleur de la palette)</label>
-        <label><input type="radio" name="stylePuce" value="emoji" checked> Émoji 🔹 (couleur garantie partout)</label>
+        <div class="actions" style="margin-top:10px;">
+          <select id="langueTrad" style="width:auto;">
+            <option value="" selected>Traduire en…</option>
+            <option value="en">Anglais</option>
+            <option value="es">Espagnol</option>
+          </select>
+          <button type="button" class="ghost" id="btnTraduire" disabled>Traduire</button>
+        </div>
       </div>
-    </fieldset>
+    </details>
 
-    <fieldset>
-      <legend>3 · Couleurs (palette de 3 couleurs)</legend>
-      <div class="palettes" id="palettes"></div>
-      <div class="custom-colors" id="customColors">
-        <div><span>Principale</span><input type="color" id="c1" value="#1E3A5F"></div>
-        <div><span>Accent</span><input type="color" id="c2" value="#4A90D9"></div>
-        <div><span>Fond</span><input type="color" id="c3" value="#F0F5FA"></div>
-      </div>
-    </fieldset>
+    <details class="accordion-section" id="secDestinataires">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">4 · Destinataires</span>
+        <span class="section-resume" id="resumeDestinataires"></span>
+      </summary>
+      <div class="accordion-body">
+        <p class="hint" id="destEmptyHint">Créez au moins une variable dans « 2 · Texte du mail » pour activer la génération de mails personnalisés par destinataire.</p>
+        <div id="destContenu" style="display:none;">
+          <div class="dest-table-wrap">
+            <table class="dest-table">
+              <thead><tr id="destTableHead"></tr></thead>
+              <tbody id="destTableBody"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
 
-    <fieldset>
-      <legend>4 · Signature</legend>
-      <div class="grid2">
-        <div><label for="prenom">Prénom</label><input type="text" id="prenom" placeholder="Marie"></div>
-        <div><label for="nom">Nom</label><input type="text" id="nom" placeholder="Dupont"></div>
-      </div>
-      <div class="grid2">
-        <div><label for="fonction">Fonction (optionnel)</label><input type="text" id="fonction" placeholder="Expert-comptable"></div>
-        <div><label for="cabinet">Cabinet / Société (optionnel)</label><input type="text" id="cabinet" placeholder="Cabinet Dupont & Associés"></div>
-      </div>
-      <div class="grid2">
-        <div><label for="tel">Téléphone (optionnel)</label><input type="text" id="tel" placeholder="01 23 45 67 89"></div>
-        <div><label for="mail">Email (optionnel)</label><input type="email" id="mail" placeholder="m.dupont@cabinet.fr"></div>
-      </div>
-    </fieldset>
+          <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
+          <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre des variables affichées ci-dessus."></textarea>
+          <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
 
-    <div class="actions">
+          <div class="actions" style="margin-top:14px;">
+            <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <details class="accordion-section" id="secCouleurs">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">5 · Couleurs</span>
+        <span class="section-resume" id="resumeCouleurs"></span>
+      </summary>
+      <div class="accordion-body">
+        <div class="palettes" id="palettes"></div>
+        <div class="custom-colors" id="customColors">
+          <div><span>Principale</span><input type="color" id="c1" value="#1E3A5F"></div>
+          <div><span>Accent</span><input type="color" id="c2" value="#4A90D9"></div>
+          <div><span>Fond</span><input type="color" id="c3" value="#F0F5FA"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="accordion-section" id="secSignature">
+      <summary>
+        <span class="accordion-chevron"></span>
+        <span class="accordion-titre">6 · Signature</span>
+        <span class="section-resume" id="resumeSignature"></span>
+      </summary>
+      <div class="accordion-body">
+        <div class="grid2">
+          <div><label for="prenom">Prénom</label><input type="text" id="prenom" placeholder="Marie"></div>
+          <div><label for="nom">Nom</label><input type="text" id="nom" placeholder="Dupont"></div>
+        </div>
+        <div class="grid2">
+          <div><label for="fonction">Fonction (optionnel)</label><input type="text" id="fonction" placeholder="Expert-comptable"></div>
+          <div><label for="cabinet">Cabinet / Société (optionnel)</label><input type="text" id="cabinet" placeholder="Cabinet Dupont & Associés"></div>
+        </div>
+        <div class="grid2">
+          <div><label for="tel">Téléphone (optionnel)</label><input type="text" id="tel" placeholder="01 23 45 67 89"></div>
+          <div><label for="mail">Email (optionnel)</label><input type="email" id="mail" placeholder="m.dupont@cabinet.fr"></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="card" style="display:flex; flex-direction:column; gap:10px;">
       <button class="primary" id="btnCopyRendu">Copier le mail mis en forme</button>
+      <p class="hint" style="margin-top:0;">Fonctionne avec Gmail, Outlook, Apple Mail, Thunderbird et la plupart des messageries. Collez directement dans la fenêtre de rédaction.</p>
     </div>
-    <p class="hint">Fonctionne avec Gmail, Outlook, Apple Mail, Thunderbird et la plupart des messageries. Collez directement dans la fenêtre de rédaction.</p>
   </section>
 
   <!-- ===== Aperçu ===== -->
@@ -707,6 +811,8 @@ function renderPanneauVariables(){
   if(variables.length === 0){
     panel.style.display = "none";
     hint.style.display = "none";
+    mettreAJourResumesAccordeon();
+    mettreAJourBandeauStatut();
     return;
   }
 
@@ -741,6 +847,9 @@ function renderPanneauVariables(){
     row.appendChild(supprEl);
     liste.appendChild(row);
   });
+
+  mettreAJourResumesAccordeon();
+  mettreAJourBandeauStatut();
 }
 
 function substituerVariables(texte){
@@ -794,12 +903,17 @@ function creerCelluleSuppressionDestinataire(row){
 }
 
 function renderTableDestinataires(){
-  const panel = $("destPanel");
+  const emptyHint = $("destEmptyHint");
+  const contenu = $("destContenu");
   if(variables.length === 0){
-    panel.style.display = "none";
+    emptyHint.style.display = "block";
+    contenu.style.display = "none";
+    mettreAJourResumesAccordeon();
+    mettreAJourBandeauStatut();
     return;
   }
-  panel.style.display = "block";
+  emptyHint.style.display = "none";
+  contenu.style.display = "block";
 
   const thead = $("destTableHead");
   thead.innerHTML = "";
@@ -826,6 +940,8 @@ function renderTableDestinataires(){
   });
 
   mettreAJourEtatGenerer();
+  mettreAJourResumesAccordeon();
+  mettreAJourBandeauStatut();
 }
 
 function mettreAJourEtatGenerer(){
@@ -1279,6 +1395,81 @@ function activerEditionApercu(){
 
 $("preview").addEventListener("load", activerEditionApercu);
 
+/* ===== Résumés d'accordéon + bandeau de statut ===== */
+function resumeEntete(){
+  const styleLabel = { sobre:"Sobre", bandeau:"Bandeau", minimal:"Minimal" }[currentStyleEntete()] || "Sobre";
+  const aImage = $("imgUrl").value.trim() !== "";
+  return `Style ${styleLabel}` + (aImage ? " · Image définie" : "");
+}
+
+function resumeTexte(){
+  const n = variables.length;
+  return n === 0 ? "Aucune variable" : `${n} variable${n > 1 ? "s" : ""} détectée${n > 1 ? "s" : ""}`;
+}
+
+function tonSelectionneLibelle(){
+  const select = $("tonStyle");
+  return select.options[select.selectedIndex].textContent;
+}
+
+function resumeIA(){
+  return `Ton : ${tonSelectionneLibelle()}` + ($("tutoiement").checked ? " · Tutoiement" : "");
+}
+
+function resumeDestinataires(){
+  const n = destinataires.length;
+  return n === 0 ? "Aucun destinataire" : `${n} destinataire${n > 1 ? "s" : ""}`;
+}
+
+function resumeCouleurs(){
+  return selected === -1 ? "Palette personnalisée" : `Palette ${PALETTES[selected].name}`;
+}
+
+function resumeSignature(){
+  const nomComplet = [$("prenom").value.trim(), $("nom").value.trim()].filter(Boolean).join(" ");
+  return nomComplet || "Non renseignée";
+}
+
+function mettreAJourResumesAccordeon(){
+  $("resumeEntete").textContent = resumeEntete();
+  $("resumeTexte").textContent = resumeTexte();
+  $("resumeIA").textContent = resumeIA();
+  $("resumeDestinataires").textContent = resumeDestinataires();
+  $("resumeCouleurs").textContent = resumeCouleurs();
+  $("resumeSignature").textContent = resumeSignature();
+}
+
+function mettreAJourBandeauStatut(){
+  const paletteNom = selected === -1 ? "Personnalisée" : PALETTES[selected].name;
+  const couleurPoint = selected === -1 ? $("c1").value : PALETTES[selected].colors[0];
+  $("statusPaletteDot").style.background = couleurPoint;
+  $("statusPaletteNom").textContent = "Palette " + paletteNom;
+
+  $("statusTon").textContent = "Ton : " + tonSelectionneLibelle();
+
+  const n = variables.length;
+  $("statusVariables").textContent = n + (n > 1 ? " variables" : " variable");
+
+  const nd = destinataires.length;
+  if(nd > 0){
+    $("statusDestinataires").textContent = nd + (nd > 1 ? " destinataires" : " destinataire");
+    $("statusDestinataires").style.display = "inline";
+    $("statusDestSep").style.display = "inline";
+  }else{
+    $("statusDestinataires").style.display = "none";
+    $("statusDestSep").style.display = "none";
+  }
+}
+
+$("tonStyle").addEventListener("change", () => {
+  mettreAJourResumesAccordeon();
+  mettreAJourBandeauStatut();
+});
+$("tutoiement").addEventListener("change", () => {
+  mettreAJourResumesAccordeon();
+  mettreAJourBandeauStatut();
+});
+
 function render(){
   if(apercuModifie){
     const continuer = confirm("Vos retouches manuelles dans l'aperçu seront perdues. Continuer ?");
@@ -1294,6 +1485,9 @@ function render(){
   const html = buildEmail();
   $("preview").srcdoc = html;
   $("code").textContent = html;
+
+  mettreAJourResumesAccordeon();
+  mettreAJourBandeauStatut();
 }
 
 $("btnAnnulerRetouches").onclick = () => {
