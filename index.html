@@ -1303,7 +1303,7 @@ function construireMail(){
 
   const fragment = `  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${bg};">
     <tr>
-      <td align="center" style="padding:0;">
+      <td align="left" style="padding:0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background-color:#ffffff;">
 ${imgUrl?`          <!-- Image d'entête -->
           <tr>
@@ -1315,7 +1315,7 @@ ${blocBandeau}
           <!-- Corps + Signature (largeur de lecture limitée) -->
           <tr>
             <td style="padding:0 32px;">
-              <table role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; width:100%;">
+              <table role="presentation" align="left" width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; width:100%;">
 ${blocSobre}
                 <tr>
                   <td style="padding:${paddingCorpsHaut} 0 10px 0;">
