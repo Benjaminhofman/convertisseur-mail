@@ -155,6 +155,57 @@
   }
   .btn-link:hover{color:var(--ink)}
 
+  /* Bouton d'aide (mode d'emploi des variables) */
+  .btn-aide{
+    display:inline-flex;align-items:center;gap:4px;
+    background:none;border:none;padding:6px 0 0;margin:0;
+    font:inherit;font-size:.8rem;font-weight:600;color:var(--accent);
+    text-decoration:none;cursor:pointer;
+  }
+  .btn-aide:hover{text-decoration:underline}
+
+  /* Modale d'aide */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(22,35,46,.55);
+    z-index:1000;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex}
+  .modal-box{
+    background:#fff;border-radius:var(--radius);max-width:480px;width:100%;
+    max-height:calc(100vh - 40px);overflow-y:auto;padding:26px 24px 22px;
+    position:relative;box-shadow:0 12px 40px rgba(0,0,0,.25);
+  }
+  .modal-box:focus{outline:none}
+  .modal-close{
+    position:absolute;top:12px;right:14px;background:none;border:none;
+    font-size:22px;line-height:1;cursor:pointer;color:var(--ink-soft);padding:4px 6px;
+  }
+  .modal-close:hover{color:var(--ink)}
+  .modal-box h2{
+    font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:700;
+    color:var(--ink);margin:0 26px 16px 0;line-height:1.35;
+  }
+  .modal-etape{margin-bottom:16px}
+  .modal-etape:last-of-type{margin-bottom:12px}
+  .modal-etape h3{
+    font-family:'Space Grotesk',sans-serif;font-size:.85rem;font-weight:700;
+    color:var(--accent-dark);margin-bottom:6px;
+  }
+  .modal-etape p{font-size:.86rem;color:var(--ink);line-height:1.55;margin:0}
+  .modal-exemple{
+    margin-top:10px;background:var(--paper);border:1px solid var(--line);
+    border-radius:6px;padding:10px 12px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+    font-size:.78rem;color:var(--ink-soft);line-height:1.6;
+  }
+  .modal-astuce{
+    font-style:italic;font-size:13px;color:var(--ink-soft);
+    margin-top:6px;padding-top:14px;border-top:1px solid var(--line);
+  }
+  @media(max-width:480px){
+    .modal-box{padding:22px 18px 18px}
+  }
+
   /* Variables réutilisables */
   .btn-mini{
     font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.78rem;
@@ -374,6 +425,7 @@ Cordialement,"></textarea>
         </div>
 
         <p class="hint">Astuce : commencez une ligne par ## pour créer un sous-titre (ex. : ## Échéance TVA).</p>
+        <button type="button" class="btn-aide" id="btnAideVariables">❓ Comment utiliser les variables ?</button>
 
         <div class="sep-options">
           <span class="sep-label">Séparateur entre paragraphes</span>
@@ -528,6 +580,31 @@ Cordialement,"></textarea>
     </div>
   </div>
 </main>
+
+<div class="modal-overlay" id="modalAideVariables">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalAideTitre" tabindex="-1">
+    <button type="button" class="modal-close" id="btnFermerAideVariables" aria-label="Fermer">×</button>
+    <h2 id="modalAideTitre">Créer des variables et générer plusieurs mails</h2>
+
+    <div class="modal-etape">
+      <h3>1 · Créer une variable</h3>
+      <p>Dans le texte de votre mail, sélectionnez à la souris un mot ou un passage qui doit changer selon le destinataire (par exemple le nom du client). Un bouton « Transformer en variable » apparaît : cliquez dessus, donnez un nom à la variable (ex. « Nom du client »), validez. Le texte sélectionné devient une variable réutilisable — vous n'avez plus besoin de retenir de syntaxe particulière.</p>
+      <div class="modal-exemple">"Bonjour Monsieur Martin," → sélection de "Monsieur Martin" → "Bonjour {{ Nom du client }},"</div>
+    </div>
+
+    <div class="modal-etape">
+      <h3>2 · Réutiliser la même variable plusieurs fois</h3>
+      <p>Si le même élément apparaît ailleurs dans votre texte (ex. le nom du client cité une seconde fois), sélectionnez-le aussi et choisissez « Utiliser une variable existante » au lieu d'en créer une nouvelle. Les deux emplacements se mettront à jour ensemble.</p>
+    </div>
+
+    <div class="modal-etape">
+      <h3>3 · Générer un mail par destinataire</h3>
+      <p>Une fois vos variables créées, la section « 3 · Destinataires » apparaît. Ajoutez-y une ligne par destinataire (manuellement ou en collant depuis Excel), une colonne par variable. Cliquez sur « Générer les mails » : vous pouvez alors naviguer entre les destinataires et copier, pour chacun, un mail entièrement personnalisé.</p>
+    </div>
+
+    <p class="modal-astuce">Astuce : modifiez la valeur d'une variable dans le panneau « Variables du mail » pour mettre à jour tous les mails déjà générés en un instant, sans retoucher le texte.</p>
+  </div>
+</div>
 
 <div class="toast" id="toast">HTML copié dans le presse-papiers</div>
 
@@ -1675,6 +1752,54 @@ document.getElementById("btnAnnulerIA").onclick = () => {
 document.getElementById("corps").addEventListener("input", () => {
   texteOriginal = null;
   document.getElementById("btnAnnulerIA").style.display = "none";
+});
+
+/* ===== Modale d'aide : variables et génération multi-destinataires ===== */
+const modalAideVariables = $("modalAideVariables");
+const modalAideVariablesBox = modalAideVariables.querySelector(".modal-box");
+let declencheurModalAideVariables = null;
+
+function elementsFocusablesModale(){
+  return [...modalAideVariablesBox.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')];
+}
+
+function gererClavierModalAideVariables(e){
+  if(e.key === "Escape"){
+    fermerModalAideVariables();
+    return;
+  }
+  if(e.key === "Tab"){
+    const focusables = elementsFocusablesModale();
+    if(focusables.length === 0) return;
+    const premier = focusables[0];
+    const dernier = focusables[focusables.length - 1];
+    if(e.shiftKey && document.activeElement === premier){
+      e.preventDefault();
+      dernier.focus();
+    }else if(!e.shiftKey && document.activeElement === dernier){
+      e.preventDefault();
+      premier.focus();
+    }
+  }
+}
+
+function ouvrirModalAideVariables(){
+  declencheurModalAideVariables = document.activeElement;
+  modalAideVariables.classList.add("open");
+  modalAideVariablesBox.focus();
+  document.addEventListener("keydown", gererClavierModalAideVariables);
+}
+
+function fermerModalAideVariables(){
+  modalAideVariables.classList.remove("open");
+  document.removeEventListener("keydown", gererClavierModalAideVariables);
+  if(declencheurModalAideVariables) declencheurModalAideVariables.focus();
+}
+
+$("btnAideVariables").onclick = ouvrirModalAideVariables;
+$("btnFermerAideVariables").onclick = fermerModalAideVariables;
+modalAideVariables.addEventListener("click", (e) => {
+  if(e.target === modalAideVariables) fermerModalAideVariables();
 });
 
 /* ===== Écouteurs ===== */
