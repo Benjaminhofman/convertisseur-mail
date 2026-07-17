@@ -311,10 +311,8 @@ Cordialement,"></textarea>
         <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
 
         <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
-        <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre [Variables..., Email]"></textarea>
+        <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre des variables affichées ci-dessus."></textarea>
         <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
-
-        <p class="error-text" id="destAvertissement" style="display:none; margin-top:10px;"></p>
 
         <div class="actions" style="margin-top:14px;">
           <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
@@ -758,10 +756,6 @@ let destinataires = [];
 let mailsGeneres = [];
 let indexDestinataireActif = -1;
 
-function emailValide(email){
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
-}
-
 function creerCelluleVariable(row, v){
   const wrap = document.createElement("div");
   wrap.className = "dest-cell";
@@ -784,17 +778,6 @@ function creerCelluleVariable(row, v){
   wrap.appendChild(input);
   wrap.appendChild(avert);
   return wrap;
-}
-
-function creerCelluleEmail(row){
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = row.email || "";
-  input.addEventListener("input", () => {
-    row.email = input.value;
-    mettreAJourEtatGenerer();
-  });
-  return input;
 }
 
 function creerCelluleSuppressionDestinataire(row){
@@ -825,9 +808,6 @@ function renderTableDestinataires(){
     th.textContent = v.libelle;
     thead.appendChild(th);
   });
-  const thEmail = document.createElement("th");
-  thEmail.textContent = "Email";
-  thead.appendChild(thEmail);
   thead.appendChild(document.createElement("th"));
 
   const tbody = $("destTableBody");
@@ -839,9 +819,6 @@ function renderTableDestinataires(){
       td.appendChild(creerCelluleVariable(row, v));
       tr.appendChild(td);
     });
-    const tdEmail = document.createElement("td");
-    tdEmail.appendChild(creerCelluleEmail(row));
-    tr.appendChild(tdEmail);
     const tdSuppr = document.createElement("td");
     tdSuppr.appendChild(creerCelluleSuppressionDestinataire(row));
     tr.appendChild(tdSuppr);
@@ -852,11 +829,11 @@ function renderTableDestinataires(){
 }
 
 function mettreAJourEtatGenerer(){
-  $("btnGenererMails").disabled = !destinataires.some(r => emailValide(r.email));
+  $("btnGenererMails").disabled = destinataires.length === 0;
 }
 
 $("btnAjouterDestinataire").onclick = () => {
-  destinataires.push({ valeurs: {}, email: "", avertissements: {} });
+  destinataires.push({ valeurs: {}, avertissements: {} });
   renderTableDestinataires();
 };
 
@@ -865,9 +842,8 @@ $("btnImporterDestinataires").onclick = () => {
   const lignes = texte.split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.trim() !== "");
   lignes.forEach(ligne => {
     const cols = ligne.split("\t");
-    const row = { valeurs: {}, email: "", avertissements: {} };
+    const row = { valeurs: {}, avertissements: {} };
     variables.forEach((v, i) => { row.valeurs[v.id] = (cols[i] || "").trim(); });
-    row.email = (cols[variables.length] || "").trim();
     destinataires.push(row);
   });
   $("collageDestinataires").value = "";
@@ -891,13 +867,8 @@ function construireMailPourDestinataire(substitutionsRow){
 
 function genererMails(){
   const resultats = [];
-  let ignorees = 0;
 
   destinataires.forEach(row => {
-    if(!emailValide(row.email)){
-      ignorees++;
-      return;
-    }
     const substitutionsRow = {};
     variables.forEach(v => {
       const val = (row.valeurs[v.id] || "").trim();
@@ -906,18 +877,10 @@ function genererMails(){
       row.avertissements[v.id] = vide;
     });
     const { entete, html, fragment, texteBrut } = construireMailPourDestinataire(substitutionsRow);
-    resultats.push({ email: row.email.trim(), entete, html, fragment, texteBrut });
+    resultats.push({ entete, html, fragment, texteBrut, valeurs: substitutionsRow });
   });
 
   renderTableDestinataires();
-
-  const avert = $("destAvertissement");
-  if(ignorees > 0){
-    avert.textContent = `${ignorees} ligne${ignorees > 1 ? "s" : ""} ignorée${ignorees > 1 ? "s" : ""} : email manquant ou invalide.`;
-    avert.style.display = "block";
-  }else{
-    avert.style.display = "none";
-  }
 
   if(resultats.length === 0){
     mailsGeneres = [];
@@ -931,12 +894,21 @@ function genererMails(){
   afficherDestinataireActif();
 }
 
+function trouverVariableNom(){
+  return variables.find(v => v.libelle.trim().toLowerCase() === "nom");
+}
+
 function afficherDestinataireActif(){
   const total = mailsGeneres.length;
   const courant = mailsGeneres[indexDestinataireActif];
 
+  const varNom = trouverVariableNom();
+  const repere = varNom ? courant.valeurs[varNom.id] : "";
+
   $("navDestinataires").style.display = "flex";
-  $("navDestinatairesTexte").textContent = `Destinataire ${indexDestinataireActif + 1}/${total} — ${courant.email}`;
+  $("navDestinatairesTexte").textContent = repere
+    ? `Destinataire ${indexDestinataireActif + 1} sur ${total} — ${repere}`
+    : `Destinataire ${indexDestinataireActif + 1} sur ${total}`;
   $("btnDestPrecedent").disabled = indexDestinataireActif === 0;
   $("btnDestSuivant").disabled = indexDestinataireActif === total - 1;
 
