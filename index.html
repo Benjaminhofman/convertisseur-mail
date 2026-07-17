@@ -157,6 +157,24 @@
   }
   .var-item-suppr:hover{color:#B3261E}
 
+  /* Destinataires (mail-merge) */
+  .dest-table-wrap{overflow-x:auto;margin-bottom:10px}
+  .dest-table{width:100%;border-collapse:collapse;font-size:.82rem}
+  .dest-table th{
+    text-align:left;font-weight:700;color:var(--ink-soft);font-size:.72rem;
+    text-transform:uppercase;letter-spacing:.03em;padding:6px 8px;
+    border-bottom:2px solid var(--line);white-space:nowrap;
+  }
+  .dest-table td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .dest-table input[type=text]{width:100%;min-width:110px;padding:6px 8px;font-size:.82rem}
+  .dest-cell{display:flex;flex-direction:column;gap:2px}
+  .dest-avert{font-size:.68rem;color:#B3261E;display:none}
+  .dest-suppr{
+    background:none;border:none;font-size:16px;line-height:1;cursor:pointer;
+    color:var(--ink-soft);padding:2px 8px;
+  }
+  .dest-suppr:hover{color:#B3261E}
+
   /* Séparateurs entre paragraphes */
   .hint{font-size:12px;color:var(--ink-soft);margin-top:6px}
   .sep-options{margin-top:10px}
@@ -271,6 +289,27 @@ Cordialement,"></textarea>
         <div id="varList"></div>
       </div>
 
+      <div class="var-panel" id="destPanel" style="display:none;">
+        <div class="var-panel-title">Destinataires</div>
+        <div class="dest-table-wrap">
+          <table class="dest-table">
+            <thead><tr id="destTableHead"></tr></thead>
+            <tbody id="destTableBody"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn-mini secondaire" id="btnAjouterDestinataire">+ Ajouter un destinataire</button>
+
+        <label for="collageDestinataires" style="margin-top:14px;">Coller depuis Excel</label>
+        <textarea id="collageDestinataires" style="min-height:80px;" placeholder="Collez ici depuis Excel : une ligne par destinataire, colonnes séparées par une tabulation, dans l'ordre [Variables..., Email]"></textarea>
+        <button type="button" class="btn-mini secondaire" id="btnImporterDestinataires" style="margin-top:8px;">Importer</button>
+
+        <p class="error-text" id="destAvertissement" style="display:none; margin-top:10px;"></p>
+
+        <div class="actions" style="margin-top:14px;">
+          <button type="button" class="primary" id="btnGenererMails" disabled>Générer les mails</button>
+        </div>
+      </div>
+
       <label for="tonStyle">Style</label>
       <select id="tonStyle">
         <option value="professionnel et courtois" selected>Professionnel et courtois</option>
@@ -357,6 +396,14 @@ Cordialement,"></textarea>
 
   <!-- ===== Aperçu ===== -->
   <div class="preview-wrap">
+    <div id="navDestinataires" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:13px;">
+      <button type="button" class="btn-link" id="btnDestPrecedent" style="padding:4px 8px;">← Précédent</button>
+      <span id="navDestinatairesTexte" style="font-weight:600;"></span>
+      <button type="button" class="btn-link" id="btnDestSuivant" style="padding:4px 8px;">Suivant →</button>
+    </div>
+    <div class="actions" id="destExportActions" style="display:none; margin-top:0;">
+      <button type="button" class="ghost" id="btnTelechargerEml">Télécharger tous les brouillons (.eml)</button>
+    </div>
     <div id="bandeauApercu" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:12px;">
       <span>✏️ Aperçu modifié manuellement — les modifications du formulaire écraseront ces retouches.</span>
       <button type="button" id="btnAnnulerRetouches" class="btn-link" style="white-space:nowrap; padding:0;">Annuler les retouches</button>
@@ -374,6 +421,7 @@ Cordialement,"></textarea>
 
 <div class="toast" id="toast">HTML copié dans le presse-papiers</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 /* ===== Palettes prédéfinies : [principale, accent, fond] ===== */
 const PALETTES = [
@@ -586,6 +634,7 @@ $("varPopoverValider").onclick = () => {
   varSelectionBar.style.display = "none";
   fermerPopoverVariable();
   renderPanneauVariables();
+  renderTableDestinataires();
   render();
 };
 
@@ -595,6 +644,7 @@ function supprimerVariable(id){
   corpsEl.value = corpsEl.value.split(`{{${id}}}`).join(variable.valeurDefaut);
   variables = variables.filter(v => v.id !== id);
   renderPanneauVariables();
+  renderTableDestinataires();
   render();
 }
 
@@ -650,6 +700,252 @@ function substituerVariables(texte){
   });
   return out;
 }
+
+/* ===== Génération multi-destinataires (mail-merge) à partir des variables ===== */
+let destinataires = [];
+let mailsGeneres = [];
+let indexDestinataireActif = -1;
+
+function emailValide(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim());
+}
+
+function creerCelluleVariable(row, v){
+  const wrap = document.createElement("div");
+  wrap.className = "dest-cell";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = row.valeurs[v.id] || "";
+
+  const avert = document.createElement("span");
+  avert.className = "dest-avert";
+  avert.textContent = "⚠️ valeur par défaut utilisée";
+  avert.style.display = row.avertissements[v.id] ? "block" : "none";
+
+  input.addEventListener("input", () => {
+    row.valeurs[v.id] = input.value;
+    row.avertissements[v.id] = false;
+    avert.style.display = "none";
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(avert);
+  return wrap;
+}
+
+function creerCelluleEmail(row){
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = row.email || "";
+  input.addEventListener("input", () => {
+    row.email = input.value;
+    mettreAJourEtatGenerer();
+  });
+  return input;
+}
+
+function creerCelluleSuppressionDestinataire(row){
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "dest-suppr";
+  btn.title = "Supprimer ce destinataire";
+  btn.textContent = "×";
+  btn.onclick = () => {
+    destinataires = destinataires.filter(r => r !== row);
+    renderTableDestinataires();
+  };
+  return btn;
+}
+
+function renderTableDestinataires(){
+  const panel = $("destPanel");
+  if(variables.length === 0){
+    panel.style.display = "none";
+    return;
+  }
+  panel.style.display = "block";
+
+  const thead = $("destTableHead");
+  thead.innerHTML = "";
+  variables.forEach(v => {
+    const th = document.createElement("th");
+    th.textContent = v.libelle;
+    thead.appendChild(th);
+  });
+  const thEmail = document.createElement("th");
+  thEmail.textContent = "Email";
+  thead.appendChild(thEmail);
+  thead.appendChild(document.createElement("th"));
+
+  const tbody = $("destTableBody");
+  tbody.innerHTML = "";
+  destinataires.forEach(row => {
+    const tr = document.createElement("tr");
+    variables.forEach(v => {
+      const td = document.createElement("td");
+      td.appendChild(creerCelluleVariable(row, v));
+      tr.appendChild(td);
+    });
+    const tdEmail = document.createElement("td");
+    tdEmail.appendChild(creerCelluleEmail(row));
+    tr.appendChild(tdEmail);
+    const tdSuppr = document.createElement("td");
+    tdSuppr.appendChild(creerCelluleSuppressionDestinataire(row));
+    tr.appendChild(tdSuppr);
+    tbody.appendChild(tr);
+  });
+
+  mettreAJourEtatGenerer();
+}
+
+function mettreAJourEtatGenerer(){
+  $("btnGenererMails").disabled = !destinataires.some(r => emailValide(r.email));
+}
+
+$("btnAjouterDestinataire").onclick = () => {
+  destinataires.push({ valeurs: {}, email: "", avertissements: {} });
+  renderTableDestinataires();
+};
+
+$("btnImporterDestinataires").onclick = () => {
+  const texte = $("collageDestinataires").value;
+  const lignes = texte.split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.trim() !== "");
+  lignes.forEach(ligne => {
+    const cols = ligne.split("\t");
+    const row = { valeurs: {}, email: "", avertissements: {} };
+    variables.forEach((v, i) => { row.valeurs[v.id] = (cols[i] || "").trim(); });
+    row.email = (cols[variables.length] || "").trim();
+    destinataires.push(row);
+  });
+  $("collageDestinataires").value = "";
+  renderTableDestinataires();
+};
+
+/* ===== Construit le mail (HTML complet + fragment) pour une ligne de destinataire,
+   en substituant temporairement les valeurDefaut des variables ===== */
+function construireMailPourDestinataire(substitutionsRow){
+  const sauvegarde = variables.map(v => v.valeurDefaut);
+  variables.forEach(v => { v.valeurDefaut = substitutionsRow[v.id]; });
+
+  const html = buildEmail();
+  const fragment = buildEmailFragment();
+  const texteBrut = substituerVariables($("corps").value);
+  const entete = $("entete").value.trim() || "Entête du mail";
+
+  variables.forEach((v, i) => { v.valeurDefaut = sauvegarde[i]; });
+  return { entete, html, fragment, texteBrut };
+}
+
+function genererMails(){
+  const resultats = [];
+  let ignorees = 0;
+
+  destinataires.forEach(row => {
+    if(!emailValide(row.email)){
+      ignorees++;
+      return;
+    }
+    const substitutionsRow = {};
+    variables.forEach(v => {
+      const val = (row.valeurs[v.id] || "").trim();
+      const vide = val === "";
+      substitutionsRow[v.id] = vide ? v.valeurDefaut : val;
+      row.avertissements[v.id] = vide;
+    });
+    const { entete, html, fragment, texteBrut } = construireMailPourDestinataire(substitutionsRow);
+    resultats.push({ email: row.email.trim(), entete, html, fragment, texteBrut });
+  });
+
+  renderTableDestinataires();
+
+  const avert = $("destAvertissement");
+  if(ignorees > 0){
+    avert.textContent = `${ignorees} ligne${ignorees > 1 ? "s" : ""} ignorée${ignorees > 1 ? "s" : ""} : email manquant ou invalide.`;
+    avert.style.display = "block";
+  }else{
+    avert.style.display = "none";
+  }
+
+  if(resultats.length === 0){
+    mailsGeneres = [];
+    indexDestinataireActif = -1;
+    $("navDestinataires").style.display = "none";
+    $("destExportActions").style.display = "none";
+    return;
+  }
+
+  mailsGeneres = resultats;
+  indexDestinataireActif = 0;
+  afficherDestinataireActif();
+}
+
+function afficherDestinataireActif(){
+  const total = mailsGeneres.length;
+  const courant = mailsGeneres[indexDestinataireActif];
+
+  $("navDestinataires").style.display = "flex";
+  $("destExportActions").style.display = "flex";
+  $("navDestinatairesTexte").textContent = `Destinataire ${indexDestinataireActif + 1}/${total} — ${courant.email}`;
+  $("btnDestPrecedent").disabled = indexDestinataireActif === 0;
+  $("btnDestSuivant").disabled = indexDestinataireActif === total - 1;
+
+  apercuModifie = false;
+  $("bandeauApercu").style.display = "none";
+  $("preview").srcdoc = courant.html;
+  $("code").textContent = courant.html;
+}
+
+$("btnGenererMails").onclick = genererMails;
+
+$("btnDestPrecedent").onclick = () => {
+  if(indexDestinataireActif > 0){
+    indexDestinataireActif--;
+    afficherDestinataireActif();
+  }
+};
+$("btnDestSuivant").onclick = () => {
+  if(indexDestinataireActif < mailsGeneres.length - 1){
+    indexDestinataireActif++;
+    afficherDestinataireActif();
+  }
+};
+
+function assainirNomFichier(nom){
+  const propre = (nom || "").trim().replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return propre || "destinataire";
+}
+
+$("btnTelechargerEml").onclick = async () => {
+  if(mailsGeneres.length === 0) return;
+
+  const zip = new JSZip();
+  const nomsUtilises = new Set();
+  mailsGeneres.forEach(m => {
+    const emlContenu = `To: ${m.email}\r\nSubject: ${m.entete}\r\nContent-Type: text/html; charset=utf-8\r\nMIME-Version: 1.0\r\n\r\n${m.html}`;
+    const base = assainirNomFichier(m.email);
+    let nom = base;
+    let i = 2;
+    while(nomsUtilises.has(nom)){
+      nom = `${base}_${i}`;
+      i++;
+    }
+    nomsUtilises.add(nom);
+    zip.file(`${nom}.eml`, emlContenu);
+  });
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const d = new Date();
+  const dateJour = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mails-${dateJour}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
 
 /* ===== Échappement HTML ===== */
 function esc(s){
@@ -1002,6 +1298,12 @@ function render(){
     const continuer = confirm("Vos retouches manuelles dans l'aperçu seront perdues. Continuer ?");
     if(!continuer) return;
   }
+  if(indexDestinataireActif >= 0){
+    indexDestinataireActif = -1;
+    mailsGeneres = [];
+    $("navDestinataires").style.display = "none";
+    $("destExportActions").style.display = "none";
+  }
   apercuModifie = false;
   $("bandeauApercu").style.display = "none";
   const html = buildEmail();
@@ -1030,7 +1332,11 @@ function assurerEnveloppeTable(html){
 
 $("btnCopyRendu").onclick = async ()=>{
   let fragment, texteBrut;
-  if(apercuModifie){
+  if(indexDestinataireActif >= 0 && mailsGeneres[indexDestinataireActif]){
+    const courant = mailsGeneres[indexDestinataireActif];
+    fragment = courant.fragment;
+    texteBrut = courant.texteBrut;
+  }else if(apercuModifie){
     const iframeDoc = $("preview").contentDocument;
     fragment = assurerEnveloppeTable(iframeDoc.body.innerHTML);
     texteBrut = iframeDoc.body.innerText;
