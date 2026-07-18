@@ -1319,14 +1319,11 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
       // paragraphe reste un paragraphe normal). Une ligne d'annonce (titre de
       // paragraphe mis en valeur à part) est détectée soit par la règle
       // historique (ligne <90 caractères finissant par ':', en début de
-      // bloc), soit par une ligne courte (<50 caractères) sans ponctuation
-      // forte finale (. ? !) ni virgule finale (garde-fou anti-salutation,
-      // ex. "Bonjour Monsieur Martin,"), qui n'est elle-même ni un marqueur
-      // ni un item de liste, et qui est la PREMIÈRE ligne d'un bloc d'au
-      // moins 2 lignes — le reste du bloc est ensuite traité normalement
-      // selon son propre contenu (intro + liste, ou simple paragraphe). Un
-      // bloc d'une seule ligne ne déclenche jamais cette règle (pas de faux
-      // titre sur une phrase courte isolée).
+      // bloc), soit par une ligne courte (<40 caractères) sans ponctuation
+      // forte finale (. ? !), qui n'est elle-même ni un marqueur ni un item
+      // de liste, et qui précède IMMÉDIATEMENT (sans ligne vide) un item de
+      // liste — utile pour un sous-titre de liste sans ':' (ex.
+      // "Fournisseurs" juste avant une énumération numérotée).
       const REGEX_NUMEROTE = /^\s*\d+[^\w\s]\s*/;
       const estNumeroteBrut = lines.map(l => REGEX_NUMEROTE.test(l));
       const estItemListeArr = lines.map((l, i) => {
@@ -1344,10 +1341,10 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
         const estMarqueur = /^(#|>|!!|\[\[|\|)/.test(trim);
         const estAnnonceAvecDeuxPoints = !estItemListe && !estMarqueur && debutDeGroupe
           && trim.length>0 && trim.length<90 && trim.endsWith(':');
-        const estAnnoncePremiereLigneBloc = !estItemListe && !estMarqueur && idx===0
-          && lines.length>=2 && trim.length>0 && trim.length<50
-          && !trim.endsWith(',') && !/[.?!]$/.test(trim);
-        const estAnnonce = estAnnonceAvecDeuxPoints || estAnnoncePremiereLigneBloc;
+        const estAnnonceSansDeuxPoints = !estItemListe && !estMarqueur
+          && trim.length>0 && trim.length<40 && !/[.?!]$/.test(trim)
+          && estItemListeArr[idx+1] === true;
+        const estAnnonce = estAnnonceAvecDeuxPoints || estAnnonceSansDeuxPoints;
         const type = estItemListe ? 'list' : (estAnnonce ? 'annonce' : 'para');
         if(courant && courant.type===type && type!=='annonce'){
           courant.lignes.push(ligne);
