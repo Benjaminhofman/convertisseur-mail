@@ -1282,7 +1282,19 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
   blocks.forEach(block=>{
     const lines = block.split('\n');
     const firstLine = lines[0].trim();
-    if(firstLine.startsWith('## ')){
+    if(firstLine.startsWith('### ')){
+      const headingText = formatGras(firstLine.slice(4).trim(), main);
+      const marginTop = headingIndex===0 ? 8 : 22;
+      headingIndex++;
+      items.push({type:'heading', html:
+`        <p style="margin:${marginTop}px 0 8px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:13px; font-weight:bold; letter-spacing:.04em; text-transform:uppercase; color:${accent};">${doubleCouche(headingText, accent)}</p>`});
+      const rest = lines.slice(1).join('\n').trim();
+      if(rest){
+        const size = paraIndex===0 ? 16 : 15;
+        paraIndex++;
+        items.push({type:'para', html: paraHtml(rest, size)});
+      }
+    } else if(firstLine.startsWith('## ')){
       const headingText = formatGras(firstLine.slice(3).trim(), main);
       const marginTop = headingIndex===0 ? 8 : 26;
       headingIndex++;
