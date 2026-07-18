@@ -1219,14 +1219,14 @@ function renderListe(lignes, main, accent, stylePuce){
     const texteItem = ligne.trim().replace(/^[-–—]\s*/, "").replace(/^\d+[^\w\s]\s*/, "");
     const margeHaut = i===0 ? 10 : 0;
     const margeBas = i===lignes.length-1 ? 14 : 8;
-    return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 16px; padding-left:20px; text-indent:-20px; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.6; color:#333333;">&nbsp;&nbsp;${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
+    return `        <p style="margin:${margeHaut}px 0 ${margeBas}px 16px; padding-left:20px; text-indent:-20px; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:15px; line-height:1.6; color:#333333;">&nbsp;&nbsp;${puce}&nbsp;&nbsp;${formatGras(texteItem, main)}</p>`;
   }).join("\n");
 }
 
 /* ===== Ligne d'annonce (titre de paragraphe court finissant par ":") ===== */
 function renderAnnonce(texte, main, margeBasse){
   const contenu = formatGras(texte, main);
-  return `        <p style="margin:20px 0 ${margeBasse}px 0; font-family:Arial,Helvetica,sans-serif; font-size:15px; line-height:1.5;">${doubleCouche(`<strong>${contenu}</strong>`, main, 'font-weight:bold;')}</p>`;
+  return `        <p style="margin:20px 0 ${margeBasse}px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:15px; line-height:1.5;">${doubleCouche(`<strong>${contenu}</strong>`, main, 'font-weight:bold;')}</p>`;
 }
 
 /* ===== Tableau simple email-safe (syntaxe | col1 | col2 |) ===== */
@@ -1251,13 +1251,13 @@ function renderTableau(lignes, main, bg){
   });
 
   const ligneEntete = `          <tr>${entetes.map(c=>
-    `<td style="background-color:${main}; color:#ffffff; font-weight:bold; font-size:13px; padding:10px 14px;">${formatGras(c, "#ffffff")}</td>`
+    `<td style="background-color:${main}; color:#ffffff; font-weight:bold; font-size:13px; padding:10px 14px; font-family:'Segoe UI', Calibri, Arial, sans-serif;">${formatGras(c, "#ffffff")}</td>`
   ).join("")}</tr>`;
 
   const lignesDonnees = donnees.map((row,i)=>{
     const fondAlterne = (i % 2 === 1) ? ` background-color:${bg};` : "";
     return `          <tr>${row.map(c=>
-      `<td style="font-size:14px; color:#333333; padding:9px 14px; border-top:1px solid #E3E3E3;${fondAlterne}">${formatGras(c, main)}</td>`
+      `<td style="font-size:14px; color:#333333; padding:9px 14px; border-top:1px solid #E3E3E3; font-family:'Segoe UI', Calibri, Arial, sans-serif;${fondAlterne}">${formatGras(c, main)}</td>`
     ).join("")}</tr>`;
   }).join("\n");
 
@@ -1270,11 +1270,11 @@ ${lignesDonnees}
 function textToHtml(txt, main, accent, bg, sep, stylePuce){
   const blocks = txt.split(/\n{2,}/).filter(b=>b.trim()!=="");
   if(blocks.length===0){
-    return `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
+    return `        <p style="margin:0 0 16px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:16px; line-height:1.6; color:#333333;">(Votre texte apparaîtra ici)</p>`;
   }
 
   const paraHtml = (text, size) =>
-    `        <p style="margin:0 0 16px 0; font-family:Arial,Helvetica,sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${formatGras(text, main).replace(/\n/g,"<br>")}</p>`;
+    `        <p style="margin:0 0 16px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:${size}px; line-height:1.6; color:#333333;">${formatGras(text, main).replace(/\n/g,"<br>")}</p>`;
 
   const items = [];
   let paraIndex = 0;
@@ -1287,7 +1287,7 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
       const marginTop = headingIndex===0 ? 8 : 26;
       headingIndex++;
       items.push({type:'heading', html:
-`        <p style="margin:${marginTop}px 0 12px 0; padding-left:22px; text-indent:-22px; font-family:Arial,Helvetica,sans-serif; font-size:16px; font-weight:bold; color:${main};">${rendrePuce(stylePuce, accent, 'titre')}&nbsp;&nbsp;${doubleCouche(headingText, main)}</p>`});
+`        <p style="margin:${marginTop}px 0 12px 0; padding-left:22px; text-indent:-22px; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:16px; font-weight:bold; color:${main};">${rendrePuce(stylePuce, accent, 'titre')}&nbsp;&nbsp;${doubleCouche(headingText, main)}</p>`});
       const rest = lines.slice(1).join('\n').trim();
       if(rest){
         const size = paraIndex===0 ? 16 : 15;
@@ -1363,7 +1363,7 @@ function textToHtml(txt, main, accent, bg, sep, stylePuce){
   const sepHtml = sep==='line'
     ? `        <div style="border-top:1px solid #E3E3E3; margin:18px 0;"></div>`
     : sep==='dash'
-      ? `        <p style="margin:18px 0; text-align:center; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:2px;">${doubleCouche('———', accent)}</p>`
+      ? `        <p style="margin:18px 0; text-align:center; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:14px; color:${accent}; letter-spacing:2px;">${doubleCouche('———', accent)}</p>`
       : null;
 
   const out = [];
@@ -1414,16 +1414,16 @@ function construireMail(){
           <!-- Bannière -->
           <tr>
             <td style="background-color:${main}; padding:38px 36px 34px 36px;">
-              <p style="margin:0 0 14px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${doubleCouche(surtitre, accentClair)}</p>
-              <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold; text-decoration:none;">${doubleCouche(entete, '#ffffff', 'text-decoration:none;')}</h1>
+              <p style="margin:0 0 14px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:11px; letter-spacing:2.5px; font-weight:bold; color:${accentClair}; text-transform:uppercase;">${doubleCouche(surtitre, accentClair)}</p>
+              <h1 style="margin:0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:25px; line-height:1.35; color:#ffffff; font-weight:bold; text-decoration:none;">${doubleCouche(entete, '#ffffff', 'text-decoration:none;')}</h1>
               <div style="height:3px; width:64px; background-color:${accent}; margin-top:18px;"></div>
             </td>
           </tr>` : "";
 
   const blocSobre = styleEntete==='sobre' ? `                <tr>
                   <td style="padding:32px 0 0 0;">
-                    <h1 style="margin:8px 0 4px 0; font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:${main}; text-decoration:none;">${doubleCouche(entete, main, 'text-decoration:none;')}</h1>
-                    <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:${accent}; letter-spacing:1px;">${doubleCouche('———', accent)}</p>
+                    <h1 style="margin:8px 0 4px 0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:20px; font-weight:bold; color:${main}; text-decoration:none;">${doubleCouche(entete, main, 'text-decoration:none;')}</h1>
+                    <p style="margin:0; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:14px; color:${accent}; letter-spacing:1px;">${doubleCouche('———', accent)}</p>
                     <div style="height:18px; line-height:18px; font-size:0;">&nbsp;</div>
                   </td>
                 </tr>` : "";
@@ -1434,8 +1434,8 @@ function construireMail(){
                   <td style="padding:10px 0 30px 0;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${accent};">
                       <tr>
-                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>
-                        <td style="padding:4px 0 4px 14px; font-family:Arial,Helvetica,sans-serif;">
+                        <td width="44" height="44" style="width:44px; height:44px; background-color:${accent}; border-radius:50%; text-align:center; vertical-align:middle; font-family:'Segoe UI', Calibri, Arial, sans-serif; font-size:15px; font-weight:bold; color:#ffffff;">${initials}</td>
+                        <td style="padding:4px 0 4px 14px; font-family:'Segoe UI', Calibri, Arial, sans-serif;">
                           <p style="margin:0; font-size:15px; font-weight:bold; color:${main};">${doubleCouche(fullName, main)}</p>
 ${sigMeta?`                          <p style="margin:2px 0 0 0; font-size:13px; color:#555555;">${sigMeta}</p>`:""}
 ${contact.length?`                          <p style="margin:6px 0 0 0; font-size:13px; color:#555555;">${contact.join(" · ")}</p>`:""}
