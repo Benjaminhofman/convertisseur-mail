@@ -315,6 +315,32 @@
   .mailframe .bar i{width:11px;height:11px;border-radius:50%;background:#C7D3DD;display:inline-block}
   .mailframe .bar span{font-size:.75rem;color:var(--ink-soft);margin-left:8px;font-weight:600}
   iframe{border:none;width:100%;flex:1;background:#fff}
+
+  /* Barre d'outils de mise en forme (aperçu éditable) */
+  .format-toolbar{
+    display:none;position:fixed;z-index:1200;align-items:center;gap:4px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:5px;box-shadow:0 6px 20px rgba(22,35,46,.18);
+  }
+  .format-toolbar button{
+    width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;
+    background:none;border:none;border-radius:6px;cursor:pointer;
+    font-family:'Space Grotesk',sans-serif;font-size:.85rem;font-weight:700;color:var(--ink);
+    padding:0;
+  }
+  .format-toolbar button:hover{background:var(--paper)}
+  .format-toolbar button.active{background:var(--accent);color:#fff}
+  .format-toolbar button#fmtUnderline{text-decoration:underline}
+  .format-toolbar button#fmtClear{font-size:.7rem;font-weight:600;width:auto;padding:0 8px;color:var(--ink-soft)}
+  .format-toolbar input[type=color]{
+    width:32px;height:32px;padding:2px;border:1px solid var(--line);border-radius:6px;
+    cursor:pointer;background:#fff;
+  }
+  .format-toolbar select{
+    height:32px;border:1px solid var(--line);border-radius:6px;font-size:.76rem;
+    padding:0 6px;color:var(--ink);background:#fff;max-width:118px;
+  }
+  .format-toolbar .format-sep{width:1px;height:20px;background:var(--line);margin:0 2px;flex:none}
   .code-card{position:relative}
   .code-card pre{
     max-height:260px;overflow:auto;
@@ -599,6 +625,21 @@ Cordialement,"></textarea>
     <div id="bandeauApercu" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font-size:12px;">
       <span>✏️ Aperçu modifié manuellement — les modifications du formulaire écraseront ces retouches.</span>
       <button type="button" id="btnAnnulerRetouches" class="btn-link" style="white-space:nowrap; padding:0;">Annuler les retouches</button>
+    </div>
+    <div class="format-toolbar" id="formatToolbar">
+      <button type="button" id="fmtBold" title="Gras"><b>G</b></button>
+      <button type="button" id="fmtUnderline" title="Souligné">U</button>
+      <span class="format-sep"></span>
+      <input type="color" id="fmtColor" title="Couleur du texte" value="#0E7C66">
+      <select id="fmtFont" title="Police">
+        <option value="Arial, Helvetica, sans-serif">Arial</option>
+        <option value="'Segoe UI', Calibri, sans-serif">Segoe UI/Calibri</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="'Courier New', monospace">Courier New</option>
+      </select>
+      <span class="format-sep"></span>
+      <button type="button" id="fmtClear" title="Effacer la mise en forme">Effacer</button>
     </div>
     <div class="mailframe">
       <div class="bar"><i></i><i></i><i></i><span>Aperçu du mail</span></div>
@@ -1137,6 +1178,7 @@ function afficherDestinataireActif(){
 
   apercuModifie = false;
   $("bandeauApercu").style.display = "none";
+  $("formatToolbar").style.display = "none";
   $("preview").srcdoc = courant.html;
   $("code").textContent = courant.html;
 }
@@ -1536,9 +1578,103 @@ function activerEditionApercu(){
   iframeDoc.body.contentEditable = "true";
   try{ iframeDoc.designMode = "on"; }catch(e){}
   iframeDoc.body.addEventListener("input", marquerApercuModifie);
+  iframeDoc.addEventListener("selectionchange", gererSelectionFormatApercu);
+  $("formatToolbar").style.display = "none";
 }
 
 $("preview").addEventListener("load", activerEditionApercu);
+
+/* ===== Barre d'outils de mise en forme de l'aperçu éditable ===== */
+const formatToolbar = $("formatToolbar");
+let dernierRangeFormat = null;
+
+function gererSelectionFormatApercu(){
+  const iframe = $("preview");
+  const iframeWin = iframe.contentWindow;
+  const iframeDoc = iframe.contentDocument;
+  if(!iframeWin || !iframeDoc){ formatToolbar.style.display = "none"; return; }
+
+  const sel = iframeWin.getSelection();
+  if(!sel || sel.rangeCount === 0 || sel.isCollapsed){
+    formatToolbar.style.display = "none";
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if(rect.width === 0 && rect.height === 0){
+    formatToolbar.style.display = "none";
+    return;
+  }
+
+  dernierRangeFormat = range.cloneRange();
+  positionnerBarreFormat(rect);
+  mettreAJourEtatsBoutonsFormat();
+}
+
+function positionnerBarreFormat(rect){
+  const iframeRect = $("preview").getBoundingClientRect();
+  formatToolbar.style.display = "flex";
+  const largeur = formatToolbar.offsetWidth;
+  const hauteur = formatToolbar.offsetHeight;
+
+  let top = iframeRect.top + rect.top - hauteur - 8;
+  if(top < 4) top = iframeRect.top + rect.bottom + 8;
+  let left = iframeRect.left + rect.left;
+  left = Math.min(Math.max(left, 8), window.innerWidth - largeur - 8);
+
+  formatToolbar.style.top = `${top}px`;
+  formatToolbar.style.left = `${left}px`;
+}
+
+function mettreAJourEtatsBoutonsFormat(){
+  const iframeDoc = $("preview").contentDocument;
+  if(!iframeDoc) return;
+  try{
+    $("fmtBold").classList.toggle("active", iframeDoc.queryCommandState("bold"));
+    $("fmtUnderline").classList.toggle("active", iframeDoc.queryCommandState("underline"));
+  }catch(e){}
+}
+
+/* Restaure la dernière sélection connue avant d'exécuter une commande de mise en
+   forme : le focus quitte l'iframe dès qu'on clique sur un bouton/select/color de
+   la barre, ce qui peut vider sa sélection avant l'appel à execCommand. */
+function appliquerFormatApercu(commande, valeur){
+  const iframe = $("preview");
+  const iframeWin = iframe.contentWindow;
+  const iframeDoc = iframe.contentDocument;
+  if(!iframeWin || !iframeDoc) return;
+
+  iframeWin.focus();
+  const sel = iframeWin.getSelection();
+  if((!sel.rangeCount || sel.isCollapsed) && dernierRangeFormat){
+    sel.removeAllRanges();
+    sel.addRange(dernierRangeFormat);
+  }
+
+  iframeDoc.execCommand(commande, false, valeur || null);
+
+  if(sel.rangeCount) dernierRangeFormat = sel.getRangeAt(0).cloneRange();
+  marquerApercuModifie();
+  mettreAJourEtatsBoutonsFormat();
+}
+
+$("fmtBold").onclick = () => appliquerFormatApercu("bold");
+$("fmtUnderline").onclick = () => appliquerFormatApercu("underline");
+$("fmtColor").addEventListener("input", () => appliquerFormatApercu("foreColor", $("fmtColor").value));
+$("fmtFont").addEventListener("change", () => appliquerFormatApercu("fontName", $("fmtFont").value));
+$("fmtClear").onclick = () => appliquerFormatApercu("removeFormat");
+
+document.addEventListener("mousedown", (e) => {
+  if(!formatToolbar.contains(e.target) && e.target !== $("preview")){
+    formatToolbar.style.display = "none";
+  }
+});
+window.addEventListener("scroll", () => {
+  if(formatToolbar.style.display !== "none" && dernierRangeFormat){
+    positionnerBarreFormat(dernierRangeFormat.getBoundingClientRect());
+  }
+}, true);
 
 /* ===== Résumés d'accordéon + bandeau de statut ===== */
 function resumeMailRecu(){
@@ -1632,9 +1768,11 @@ function render(){
   }
   apercuModifie = false;
   $("bandeauApercu").style.display = "none";
+  $("formatToolbar").style.display = "none";
   const html = buildEmail();
   $("preview").srcdoc = html;
   $("code").textContent = html;
+  $("fmtColor").value = currentColors()[1];
 
   mettreAJourResumesAccordeon();
   mettreAJourBandeauStatut();
